@@ -1,0 +1,123 @@
+import 'package:sqflite/sqflite.dart';
+import 'package:path/path.dart';
+import '../models/document_model.dart';
+import '../models/folder_model.dart';
+
+class DatabaseHelper {
+  static DatabaseHelper instance = DatabaseHelper.internal();
+  static Database? _database;
+
+  DatabaseHelper.internal();
+
+  Future<Database> get database async {
+    if (_database != null) return _database!;
+    _database = await _initDB('doc_scanner.db');
+    return _database!;
+  }
+
+  Future<Database> _initDB(String filePath) async {
+    final dbPath = await getDatabasesPath();
+    final path = join(dbPath, filePath);
+
+    return await openDatabase(
+      path,
+      version: 1,
+      onCreate: _createDB,
+    );
+  }
+
+  Future _createDB(Database db, int version) async {
+    await db.execute('''
+      CREATE TABLE folders (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        colorHex TEXT NOT NULL,
+        createdAt INTEGER NOT NULL
+      )
+    ''');
+
+    await db.execute('''
+      CREATE TABLE documents (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        folderId INTEGER,
+        title TEXT NOT NULL,
+        pagePaths TEXT NOT NULL,
+        thumbnailPath TEXT NOT NULL,
+        extractedText TEXT NOT NULL,
+        createdAt INTEGER NOT NULL,
+        FOREIGN KEY (folderId) REFERENCES folders (id) ON DELETE SET NULL
+      )
+    ''');
+
+    // Seed default folders as requested (Personal, Work, Receipts)
+    final now = DateTime.now().millisecondsSinceEpoch;
+    await db.insert('folders', {'name': 'Personal', 'colorHex': '#00A86B', 'createdAt': now});
+    await db.insert('folders', {'name': 'Work', 'colorHex': '#0F172A', 'createdAt': now});
+    await db.insert('folders', {'name': 'Receipts', 'colorHex': '#FFB703', 'createdAt': now});
+  }
+
+  // Folders CRUD
+  Future<int> insertFolder(FolderModel folder) async {
+    final db = await instance.database;
+    return await db.insert('folders', folder.toMap());
+  }
+
+  Future<List<FolderModel>> getAllFolders() async {
+    final db = await instance.database;
+    final result = await db.query('folders', orderBy: 'name ASC');
+    return result.map((json) => FolderModel.fromMap(json)).toList();
+  }
+
+  // Documents CRUD & Smart Search
+  Future<int> insertDocument(DocumentModel doc) async {
+    final db = await instance.database;
+    return await db.insert('documents', doc.toMap());
+  }
+
+  Future<int> updateDocument(DocumentModel doc) async {
+    final db = await instance.database;
+    return await db.update(
+      'documents',
+      doc.toMap(),
+      where: 'id = ?',
+      whereArgs: [doc.id],
+    );
+  }
+
+  Future<List<DocumentModel>> getDocuments({int? folderId, String? query}) async {
+    final db = await instance.database;
+    String? whereClause;
+    List<dynamic>? whereArgs;
+
+    if (query != null && query.trim().isNotEmpty) {
+      whereClause = '(title LIKE ? OR extractedText LIKE ?)';
+      final q = '%${query.trim()}%';
+      whereArgs = [q, q];
+      if (folderId != null) {
+        whereClause += ' AND folderId = ?';
+        whereArgs.add(folderId);
+      }
+    } else if (folderId != null) {
+      whereClause = 'folderId = ?';
+      whereArgs = [folderId];
+    }
+
+    final result = await db.query(
+      'documents',
+      where: whereClause,
+      whereArgs: whereArgs,
+      orderBy: 'createdAt DESC',
+    );
+
+    return result.map((json) => DocumentModel.fromMap(json)).toList();
+  }
+
+  Future<int> deleteDocument(int id) async {
+    final db = await instance.database;
+    return await db.delete(
+      'documents',
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+  }
+}

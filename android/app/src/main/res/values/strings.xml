@@ -1,0 +1,13 @@
+<resources>
+    <string name="app_name">DocScanner Pro</string>
+    <string name="search_hint">Search documents or text inside...</string>
+    <string name="all_documents">All Docs</string>
+    <string name="add_folder">+ Folder</string>
+    <string name="scan_now">Scan Document</string>
+    <string name="export_preview">Export Preview</string>
+    <string name="original_quality">Original (100%)</string>
+    <string name="medium_quality">Medium (50%)</string>
+    <string name="low_quality">Low (20%)</string>
+    <string name="export_pdf">Export PDF</string>
+    <string name="export_jpeg">Export JPEG</string>
+</resources>
