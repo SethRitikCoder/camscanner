@@ -23,7 +23,7 @@ class ToolsScreen extends StatefulWidget {
 class _ToolsScreenState extends State<ToolsScreen> {
   final ImagePicker _picker = ImagePicker();
 
-  // Tool 1: Batch Gallery Import (Existing)
+  // Tool 1: Batch Gallery Import
   Future<void> _handleBatchImport() async {
     final List<XFile> images = await _picker.pickMultiImage();
     if (images.isNotEmpty && mounted) {
@@ -40,7 +40,7 @@ class _ToolsScreenState extends State<ToolsScreen> {
     }
   }
 
-  // Tool 2: Standalone Image Compressor (Existing)
+  // Tool 2: Standalone Image Compressor
   Future<void> _handleStandaloneCompressor() async {
     final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
     if (image != null && mounted) {
@@ -52,7 +52,7 @@ class _ToolsScreenState extends State<ToolsScreen> {
     }
   }
 
-  // Tool 3: Gallery OCR (Existing)
+  // Tool 3: Gallery OCR
   Future<void> _handleGalleryOcr() async {
     final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
     if (image != null && mounted) {
@@ -82,11 +82,13 @@ class _ToolsScreenState extends State<ToolsScreen> {
                   onPressed: () {
                     Clipboard.setData(ClipboardData(text: text));
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text("Text copied to clipboard!")),
+                      const SnackBar(
+                          content: Text("Text copied to clipboard!")),
                     );
                   },
                   icon: const Icon(Icons.copy, color: Color(0xFF00A86B)),
-                  label: const Text("Copy Text", style: TextStyle(color: Color(0xFF00A86B))),
+                  label: const Text("Copy Text",
+                      style: TextStyle(color: Color(0xFF00A86B))),
                 ),
               TextButton(
                 onPressed: () => Navigator.pop(context),
@@ -99,7 +101,7 @@ class _ToolsScreenState extends State<ToolsScreen> {
     }
   }
 
-  // Tool 4: Gallery ID Card Combiner (New)
+  // Tool 4: Gallery ID Card Combiner
   Future<void> _handleIdCardCombiner() async {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text("Select FRONT side image from gallery...")),
@@ -109,7 +111,8 @@ class _ToolsScreenState extends State<ToolsScreen> {
 
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Now select BACK side image from gallery...")),
+        const SnackBar(
+            content: Text("Now select BACK side image from gallery...")),
       );
     }
     final XFile? back = await _picker.pickImage(source: ImageSource.gallery);
@@ -123,7 +126,8 @@ class _ToolsScreenState extends State<ToolsScreen> {
       );
     }
 
-    final mergedFile = await IdCardService.mergeIdCardImages(File(front.path), File(back.path));
+    final mergedFile = await IdCardService.mergeIdCardImages(
+        File(front.path), File(back.path));
 
     if (mounted) {
       Navigator.pop(context);
@@ -132,14 +136,15 @@ class _ToolsScreenState extends State<ToolsScreen> {
         MaterialPageRoute(
           builder: (_) => ExportPreviewScreen(
             imagePaths: [mergedFile.path],
-            docTitle: "Gallery_ID_Card_${DateTime.now().millisecondsSinceEpoch}",
+            docTitle:
+                "Gallery_ID_Card_${DateTime.now().millisecondsSinceEpoch}",
           ),
         ),
       );
     }
   }
 
-  // Tool 5: PDF to Image Converter (New)
+  // Tool 5: PDF to Image Converter
   Future<void> _handlePdfToImage() async {
     final result = await FilePicker.platform.pickFiles(
       type: FileType.custom,
@@ -154,7 +159,8 @@ class _ToolsScreenState extends State<ToolsScreen> {
       );
 
       final pdfFile = File(result.files.single.path!);
-      final extractedImages = await PdfToImageService.convertPdfToImages(pdfFile);
+      final extractedImages =
+          await PdfToImageService.convertPdfToImages(pdfFile);
 
       if (mounted) {
         Navigator.pop(context);
@@ -170,14 +176,15 @@ class _ToolsScreenState extends State<ToolsScreen> {
           );
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text("No pages could be extracted from PDF.")),
+            const SnackBar(
+                content: Text("No pages could be extracted from PDF.")),
           );
         }
       }
     }
   }
 
-  // Tool 6: Smart Document Enhancer (New)
+  // Tool 6: Smart Document Enhancer
   Future<void> _handleDocumentEnhancer() async {
     final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
     if (image != null && mounted) {
@@ -187,7 +194,8 @@ class _ToolsScreenState extends State<ToolsScreen> {
         builder: (_) => const Center(child: CircularProgressIndicator()),
       );
 
-      final enhancedFile = await DocumentEnhancerService.enhanceImage(File(image.path));
+      final enhancedFile =
+          await DocumentEnhancerService.enhanceImage(File(image.path));
 
       if (mounted) {
         Navigator.pop(context);
@@ -204,7 +212,7 @@ class _ToolsScreenState extends State<ToolsScreen> {
     }
   }
 
-  // Tool 7: Import & E-Sign (New)
+  // Tool 7: Import & E-Sign
   Future<void> _handleImportESign() async {
     final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
     if (image != null && mounted) {
@@ -215,7 +223,7 @@ class _ToolsScreenState extends State<ToolsScreen> {
     }
   }
 
-  // Tool 8: Secure Watermark (New)
+  // Tool 8: Secure Watermark
   Future<void> _handleSecureWatermark() async {
     final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
     if (image != null && mounted) {
@@ -231,7 +239,8 @@ class _ToolsScreenState extends State<ToolsScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
       appBar: AppBar(
-        title: const Text("Gallery Tools", style: TextStyle(fontWeight: FontWeight.bold)),
+        title: const Text("Gallery Tools",
+            style: TextStyle(fontWeight: FontWeight.bold)),
         backgroundColor: const Color(0xFF00A86B),
         foregroundColor: Colors.white,
         elevation: 0,
@@ -244,7 +253,10 @@ class _ToolsScreenState extends State<ToolsScreen> {
             children: [
               const Text(
                 "Smart Gallery Utilities",
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+                style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF0F172A)),
               ),
               const SizedBox(height: 4),
               Text(
@@ -254,7 +266,8 @@ class _ToolsScreenState extends State<ToolsScreen> {
               const SizedBox(height: 16),
               _buildToolCard(
                 title: "1. Gallery Batch to PDF",
-                subtitle: "Select multiple images from gallery and compile into PDF.",
+                subtitle:
+                    "Select multiple images from gallery and compile into PDF.",
                 icon: Icons.picture_as_pdf,
                 iconBgColor: const Color(0xFFE6F6F0),
                 iconColor: const Color(0xFF00A86B),
@@ -263,7 +276,8 @@ class _ToolsScreenState extends State<ToolsScreen> {
               const SizedBox(height: 12),
               _buildToolCard(
                 title: "2. Standalone Image Compressor",
-                subtitle: "Reduce photo file sizes (MB to KB) with live preview.",
+                subtitle:
+                    "Reduce photo file sizes (MB to KB) with live preview.",
                 icon: Icons.compress,
                 iconBgColor: const Color(0xFFFEF3C7),
                 iconColor: const Color(0xFFFFB703),
@@ -281,7 +295,8 @@ class _ToolsScreenState extends State<ToolsScreen> {
               const SizedBox(height: 12),
               _buildToolCard(
                 title: "4. Gallery ID Card Combiner",
-                subtitle: "Select Front & Back photos from gallery and merge onto A4.",
+                subtitle:
+                    "Select Front & Back photos from gallery and merge onto A4.",
                 icon: Icons.badge,
                 iconBgColor: const Color(0xFFF3E8FF),
                 iconColor: const Color(0xFF9333EA),
@@ -290,7 +305,8 @@ class _ToolsScreenState extends State<ToolsScreen> {
               const SizedBox(height: 12),
               _buildToolCard(
                 title: "5. PDF to Image Converter",
-                subtitle: "Extract all pages from a local PDF file into PNG images.",
+                subtitle:
+                    "Extract all pages from a local PDF file into PNG images.",
                 icon: Icons.collections,
                 iconBgColor: const Color(0xFFFFE4E6),
                 iconColor: const Color(0xFFE11D48),
@@ -299,7 +315,8 @@ class _ToolsScreenState extends State<ToolsScreen> {
               const SizedBox(height: 12),
               _buildToolCard(
                 title: "6. Smart Document Enhancer",
-                subtitle: "Enhance contrast & brightness for a crisp Magic Color scan look.",
+                subtitle:
+                    "Enhance contrast & brightness for a crisp Magic Color scan look.",
                 icon: Icons.auto_fix_high,
                 iconBgColor: const Color(0xFFDCFCE7),
                 iconColor: const Color(0xFF16A34A),
@@ -308,7 +325,8 @@ class _ToolsScreenState extends State<ToolsScreen> {
               const SizedBox(height: 12),
               _buildToolCard(
                 title: "7. Import & E-Sign",
-                subtitle: "Draw and burn your digital signature onto gallery document.",
+                subtitle:
+                    "Draw and burn your digital signature onto gallery document.",
                 icon: Icons.draw,
                 iconBgColor: const Color(0xFFE0E7FF),
                 iconColor: const Color(0xFF4F46E5),
@@ -317,7 +335,8 @@ class _ToolsScreenState extends State<ToolsScreen> {
               const SizedBox(height: 12),
               _buildToolCard(
                 title: "8. Secure Watermark",
-                subtitle: "Overlay customizable transparent watermark text onto document.",
+                subtitle:
+                    "Overlay customizable transparent watermark text onto document.",
                 icon: Icons.branding_watermark,
                 iconBgColor: const Color(0xFFFEE2E2),
                 iconColor: const Color(0xFFDC2626),
@@ -343,7 +362,8 @@ class _ToolsScreenState extends State<ToolsScreen> {
       elevation: 2,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: ListTile(
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         leading: Container(
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
@@ -352,12 +372,15 @@ class _ToolsScreenState extends State<ToolsScreen> {
           ),
           child: Icon(icon, color: iconColor, size: 28),
         ),
-        title: Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+        title: Text(title,
+            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
         subtitle: Padding(
           padding: const EdgeInsets.only(top: 4.0),
-          child: Text(subtitle, style: const TextStyle(fontSize: 13, height: 1.3)),
+          child:
+              Text(subtitle, style: const TextStyle(fontSize: 13, height: 1.3)),
         ),
-        trailing: const Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey),
+        trailing:
+            const Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey),
         onTap: onTap,
       ),
     );
@@ -388,7 +411,8 @@ class _CompressorDialogState extends State<_CompressorDialog> {
   Future<void> _updateSizes() async {
     setState(() => _isProcessing = true);
     final origBytes = await widget.sourceFile.length();
-    final cmpFile = await CompressionService.compressImage(widget.sourceFile, _quality);
+    final cmpFile =
+        await CompressionService.compressImage(widget.sourceFile, _quality);
     final cmpBytes = await cmpFile.length();
 
     if (mounted) {
@@ -410,15 +434,19 @@ class _CompressorDialogState extends State<_CompressorDialog> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text("Original Size: $_originalSizeText", style: const TextStyle(fontWeight: FontWeight.w500)),
+          Text("Original Size: $_originalSizeText",
+              style: const TextStyle(fontWeight: FontWeight.w500)),
           const SizedBox(height: 12),
-          const Text("Select Compression Level:", style: TextStyle(fontWeight: FontWeight.bold)),
+          const Text("Select Compression Level:",
+              style: TextStyle(fontWeight: FontWeight.bold)),
           const SizedBox(height: 8),
           SegmentedButton<CompressionQuality>(
             segments: const [
               ButtonSegment(value: CompressionQuality.low, label: Text("Low")),
-              ButtonSegment(value: CompressionQuality.medium, label: Text("Medium")),
-              ButtonSegment(value: CompressionQuality.original, label: Text("Original")),
+              ButtonSegment(
+                  value: CompressionQuality.medium, label: Text("Medium")),
+              ButtonSegment(
+                  value: CompressionQuality.original, label: Text("Original")),
             ],
             selected: {_quality},
             onSelectionChanged: (selection) {
@@ -436,10 +464,18 @@ class _CompressorDialogState extends State<_CompressorDialog> {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text("New Size:", style: TextStyle(fontWeight: FontWeight.bold)),
+                const Text("New Size:",
+                    style: TextStyle(fontWeight: FontWeight.bold)),
                 _isProcessing
-                    ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
-                    : Text(_compressedSizeText, style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF00A86B), fontSize: 16)),
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2))
+                    : Text(_compressedSizeText,
+                        style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF00A86B),
+                            fontSize: 16)),
               ],
             ),
           ),
@@ -454,10 +490,13 @@ class _CompressorDialogState extends State<_CompressorDialog> {
           onPressed: (_compressedFile == null || _isProcessing)
               ? null
               : () async {
-                  await Share.shareXFiles([XFile(_compressedFile!.path)], text: "Compressed Photo");
+                  await Share.shareXFiles([XFile(_compressedFile!.path)],
+                      text: "Compressed Photo");
                   if (context.mounted) Navigator.pop(context);
                 },
-          style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF00A86B), foregroundColor: Colors.white),
+          style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF00A86B),
+              foregroundColor: Colors.white),
           icon: const Icon(Icons.share, size: 18),
           label: const Text("Save & Share"),
         ),
@@ -475,39 +514,93 @@ class _WatermarkDialog extends StatefulWidget {
 }
 
 class _WatermarkDialogState extends State<_WatermarkDialog> {
-  final TextEditingController _textController = TextEditingController(text: "CONFIDENTIAL");
+  final TextEditingController _textController =
+      TextEditingController(text: "CONFIDENTIAL");
   double _opacity = 0.3;
   bool _isProcessing = false;
+  Color _selectedColor = Colors.grey;
+
+  Widget _buildDialogColorChip(Color color, String label) {
+    final isSelected = _selectedColor == color;
+    return Expanded(
+      child: GestureDetector(
+        onTap: () => setState(() => _selectedColor = color),
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          decoration: BoxDecoration(
+            color: isSelected
+                ? color.withValues(alpha: 0.15)
+                : Colors.grey.shade100,
+            border: Border.all(
+                color: isSelected ? color : Colors.grey.shade300,
+                width: isSelected ? 2 : 1),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              CircleAvatar(backgroundColor: color, radius: 4),
+              const SizedBox(width: 4),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                  color: isSelected ? color : Colors.grey.shade700,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
       title: const Text("Apply Secure Watermark"),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          TextField(
-            controller: _textController,
-            decoration: const InputDecoration(labelText: "Watermark Text"),
-            textCapitalization: TextCapitalization.characters,
-          ),
-          const SizedBox(height: 16),
-          Row(
-            children: [
-              const Text("Opacity:"),
-              Expanded(
-                child: Slider(
-                  value: _opacity,
-                  min: 0.1,
-                  max: 0.8,
-                  divisions: 7,
-                  label: "${(_opacity * 100).round()}%",
-                  onChanged: (val) => setState(() => _opacity = val),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            TextField(
+              controller: _textController,
+              decoration: const InputDecoration(labelText: "Watermark Text"),
+              textCapitalization: TextCapitalization.characters,
+            ),
+            const SizedBox(height: 16),
+            const Text("Watermark Color:",
+                style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                _buildDialogColorChip(Colors.grey, "Grey"),
+                const SizedBox(width: 6),
+                _buildDialogColorChip(Colors.blue, "Blue"),
+                const SizedBox(width: 6),
+                _buildDialogColorChip(Colors.red, "Red"),
+              ],
+            ),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                const Text("Opacity:"),
+                Expanded(
+                  child: Slider(
+                    value: _opacity,
+                    min: 0.1,
+                    max: 0.8,
+                    divisions: 7,
+                    label: "${(_opacity * 100).round()}%",
+                    onChanged: (val) => setState(() => _opacity = val),
+                  ),
                 ),
-              ),
-            ],
-          ),
-        ],
+              ],
+            ),
+          ],
+        ),
       ),
       actions: [
         TextButton(
@@ -521,7 +614,14 @@ class _WatermarkDialogState extends State<_WatermarkDialog> {
                   final text = _textController.text.trim();
                   if (text.isEmpty) return;
                   setState(() => _isProcessing = true);
-                  final wmFile = await WatermarkService.applyWatermark(widget.sourceFile, text, _opacity);
+
+                  final wmFile = await WatermarkService.applyWatermark(
+                    sourceFile: widget.sourceFile,
+                    text: text,
+                    opacity: _opacity,
+                    watermarkColor: _selectedColor,
+                  );
+
                   if (context.mounted) {
                     Navigator.pop(context);
                     Navigator.push(
@@ -529,13 +629,16 @@ class _WatermarkDialogState extends State<_WatermarkDialog> {
                       MaterialPageRoute(
                         builder: (_) => ExportPreviewScreen(
                           imagePaths: [wmFile.path],
-                          docTitle: "Watermarked_${DateTime.now().millisecondsSinceEpoch}",
+                          docTitle:
+                              "Watermarked_${DateTime.now().millisecondsSinceEpoch}",
                         ),
                       ),
                     );
                   }
                 },
-          style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF00A86B), foregroundColor: Colors.white),
+          style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF00A86B),
+              foregroundColor: Colors.white),
           child: const Text("Apply & View"),
         ),
       ],
@@ -543,6 +646,7 @@ class _WatermarkDialogState extends State<_WatermarkDialog> {
   }
 }
 
+// PREMIUM UPGRADED DRAG & RESIZE E-SIGN DIALOG
 class _ESignDialog extends StatefulWidget {
   final File sourceFile;
   const _ESignDialog({required this.sourceFile});
@@ -555,111 +659,342 @@ class _ESignDialogState extends State<_ESignDialog> {
   final List<List<Offset>> _strokes = [];
   List<Offset>? _currentStroke;
   bool _isProcessing = false;
-  Size _widgetSize = Size.zero;
+
+  // Premium State Variables for Moving & Resizing
+  bool _isSignaturePlaced = false;
+  Offset _boxPosition = const Offset(50, 200);
+  double _boxWidth = 220.0;
+  double _boxHeight = 110.0;
+  Color _selectedSignatureColor = const Color(0xFF0F172A);
+
+  // Hand-drawing pad modal
+  void _openSignaturePadModal() {
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setModalState) {
+          return AlertDialog(
+            title: const Text("Draw Your Signature",
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            content: Container(
+              width: double.maxFinite,
+              height: 200,
+              decoration: BoxDecoration(
+                border: Border.all(color: Colors.grey.shade300),
+                borderRadius: BorderRadius.circular(12),
+                color: Colors.grey.shade50,
+              ),
+              child: GestureDetector(
+                onPanStart: (details) {
+                  setModalState(() {
+                    _currentStroke = [details.localPosition];
+                    _strokes.add(_currentStroke!);
+                  });
+                },
+                onPanUpdate: (details) {
+                  setModalState(() {
+                    _currentStroke?.add(details.localPosition);
+                  });
+                },
+                child: CustomPaint(
+                  size: Size.infinite,
+                  painter: _SignaturePainter(
+                      strokes: _strokes, inkColor: _selectedSignatureColor),
+                ),
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () {
+                  setState(() {
+                    _strokes.clear();
+                    _currentStroke = null;
+                  });
+                  setModalState(() {});
+                },
+                child: const Text("Clear", style: TextStyle(color: Colors.red)),
+              ),
+              ElevatedButton(
+                onPressed: () {
+                  if (_strokes.isNotEmpty) {
+                    setState(() {
+                      _isSignaturePlaced = true;
+                    });
+                    Navigator.pop(context);
+                  }
+                },
+                style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF00A86B),
+                    foregroundColor: Colors.white),
+                child: const Text("Done"),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildToolAction(
+      {required IconData icon,
+      required String label,
+      Color? color,
+      required VoidCallback onTap}) {
+    final activeColor = color ?? const Color(0xFF64748B);
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(8),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        child: Column(
+          children: [
+            Icon(icon, color: activeColor, size: 24),
+            const SizedBox(height: 4),
+            Text(label,
+                style: TextStyle(
+                    fontSize: 11,
+                    color: activeColor,
+                    fontWeight: FontWeight.w500)),
+          ],
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     return Dialog.fullscreen(
       child: Scaffold(
+        backgroundColor: const Color(0xFF1E293B),
         appBar: AppBar(
-          title: const Text("Import & E-Sign"),
+          title: const Text("Import & E-Sign",
+              style: TextStyle(fontWeight: FontWeight.bold)),
           backgroundColor: const Color(0xFF00A86B),
           foregroundColor: Colors.white,
-          actions: [
-            IconButton(
-              icon: const Icon(Icons.clear_all),
-              tooltip: "Clear Signature",
-              onPressed: () => setState(() {
-                _strokes.clear();
-                _currentStroke = null;
-              }),
-            ),
-          ],
+          elevation: 0,
         ),
         body: SafeArea(
           child: Column(
             children: [
+              // 1. Image Viewport Layer
               Expanded(
                 child: Container(
                   color: const Color(0xFF0F172A),
                   child: Center(
-                    child: LayoutBuilder(
-                      builder: (context, constraints) {
-                        _widgetSize = Size(constraints.maxWidth, constraints.maxHeight);
-                        return GestureDetector(
-                          onPanStart: (details) {
-                            setState(() {
-                              _currentStroke = [details.localPosition];
-                              _strokes.add(_currentStroke!);
-                            });
-                          },
-                          onPanUpdate: (details) {
-                            setState(() {
-                              _currentStroke?.add(details.localPosition);
-                            });
-                          },
-                          child: Stack(
-                            fit: StackFit.expand,
-                            children: [
-                              Image.file(widget.sourceFile, fit: BoxFit.contain),
-                              CustomPaint(
-                                size: Size.infinite,
-                                painter: _SignaturePainter(strokes: _strokes),
-                              ),
-                            ],
+                    child: Stack(
+                      children: [
+                        Image.file(widget.sourceFile, fit: BoxFit.contain),
+                        if (_isSignaturePlaced)
+                          Positioned(
+                            left: _boxPosition.dx,
+                            top: _boxPosition.dy < 0 ? 0 : _boxPosition.dy,
+                            child: Stack(
+                              children: [
+                                GestureDetector(
+                                  onPanUpdate: (details) {
+                                    setState(() {
+                                      _boxPosition += details.delta;
+                                    });
+                                  },
+                                  child: Container(
+                                    width: _boxWidth,
+                                    height: _boxHeight,
+                                    padding: const EdgeInsets.all(6),
+                                    decoration: BoxDecoration(
+                                      border: Border.all(
+                                        color: const Color(0xFF00A86B),
+                                        style: BorderStyle.solid,
+                                        width: 1.5,
+                                      ),
+                                    ),
+                                    child: FittedBox(
+                                      fit: BoxFit.fill,
+                                      child: SizedBox(
+                                        width: 300,
+                                        height: 150,
+                                        child: CustomPaint(
+                                          painter: _SignaturePainter(
+                                              strokes: _strokes,
+                                              inkColor:
+                                                  _selectedSignatureColor),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                Positioned(
+                                  bottom: 0,
+                                  right: 0,
+                                  child: GestureDetector(
+                                    onPanUpdate: (details) {
+                                      setState(() {
+                                        _boxWidth += details.delta.dx;
+                                        _boxHeight += details.delta.dy;
+                                        if (_boxWidth < 80) _boxWidth = 80;
+                                        if (_boxHeight < 40) _boxHeight = 40;
+                                      });
+                                    },
+                                    child: const CircleAvatar(
+                                      radius: 8,
+                                      backgroundColor: Color(0xFF00A86B),
+                                      child: Icon(Icons.open_in_full,
+                                          size: 10, color: Colors.white),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
-                        );
-                      },
+                      ],
                     ),
                   ),
                 ),
               ),
+
+              // 2. Bottom CamScanner Tools Controls
               Container(
-                padding: const EdgeInsets.all(16),
-                color: Colors.white,
-                child: Row(
+                decoration: const BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+                  boxShadow: [
+                    BoxShadow(
+                        color: Colors.black12, blurRadius: 10, spreadRadius: 1)
+                  ],
+                ),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    Expanded(
-                      child: OutlinedButton(
-                        onPressed: () => Navigator.pop(context),
-                        child: const Text("Cancel"),
-                      ),
+                    const Text(
+                      "Signature Tools",
+                      style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF475569)),
                     ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: ElevatedButton.icon(
-                        onPressed: _isProcessing
-                            ? null
-                            : () async {
-                                if (_strokes.isEmpty) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(content: Text("Please draw a signature first!")),
-                                  );
-                                  return;
-                                }
-                                setState(() => _isProcessing = true);
-                                final signedFile = await ESignService.applySignature(
-                                  widget.sourceFile,
-                                  _strokes,
-                                  _widgetSize.isEmpty ? const Size(360, 600) : _widgetSize,
-                                );
-                                if (context.mounted) {
-                                  Navigator.pop(context);
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (_) => ExportPreviewScreen(
-                                        imagePaths: [signedFile.path],
-                                        docTitle: "Signed_${DateTime.now().millisecondsSinceEpoch}",
-                                      ),
-                                    ),
-                                  );
-                                }
-                              },
-                        style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF00A86B), foregroundColor: Colors.white),
-                        icon: const Icon(Icons.check),
-                        label: const Text("Save & Export"),
-                      ),
+                    const SizedBox(height: 14),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                      children: [
+                        _buildToolAction(
+                          icon: Icons.border_color,
+                          label: _isSignaturePlaced ? "Redraw" : "Add Sign",
+                          onTap: _openSignaturePadModal,
+                        ),
+                        _buildToolAction(
+                          icon: Icons.palette,
+                          label: "Blue Ink",
+                          color: _selectedSignatureColor == Colors.blue
+                              ? const Color(0xFF00A86B)
+                              : null,
+                          onTap: () => setState(
+                              () => _selectedSignatureColor = Colors.blue),
+                        ),
+                        _buildToolAction(
+                          icon: Icons.draw,
+                          label: "Black Ink",
+                          color:
+                              _selectedSignatureColor == const Color(0xFF0F172A)
+                                  ? const Color(0xFF00A86B)
+                                  : null,
+                          onTap: () => setState(() => _selectedSignatureColor =
+                              const Color(0xFF0F172A)),
+                        ),
+                        _buildToolAction(
+                          icon: Icons.delete_outline,
+                          label: "Remove",
+                          onTap: () => setState(() {
+                            _strokes.clear();
+                            _isSignaturePlaced = false;
+                          }),
+                        ),
+                      ],
+                    ),
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 14.0),
+                      child: Divider(height: 1, thickness: 0.5),
+                    ),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton(
+                            onPressed: () => Navigator.pop(context),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: Colors.grey.shade700,
+                              side: BorderSide(color: Colors.grey.shade300),
+                              padding: const EdgeInsets.symmetric(vertical: 14),
+                              shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12)),
+                            ),
+                            child: const Text("Cancel",
+                                style: TextStyle(fontWeight: FontWeight.bold)),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: ElevatedButton.icon(
+                            onPressed: _isProcessing
+                                ? null
+                                : () async {
+                                    if (!_isSignaturePlaced ||
+                                        _strokes.isEmpty) {
+                                      ScaffoldMessenger.of(context)
+                                          .showSnackBar(
+                                        const SnackBar(
+                                          content: Text(
+                                              "Please place a signature first!"),
+                                        ),
+                                      );
+                                      return;
+                                    }
+
+                                    setState(() => _isProcessing = true);
+
+                                    final signedFile =
+                                        await ESignService.applySignature(
+                                      widget.sourceFile,
+                                      _strokes,
+                                      const Size(360, 600),
+                                      boxPosition: _boxPosition,
+                                      boxSize: Size(_boxWidth, _boxHeight),
+                                      inkColor: _selectedSignatureColor,
+                                    );
+
+                                    if (context.mounted) {
+                                      Navigator.pop(context);
+                                      Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (_) => ExportPreviewScreen(
+                                            imagePaths: [signedFile.path],
+                                            docTitle:
+                                                "Signed_${DateTime.now().millisecondsSinceEpoch}",
+                                          ),
+                                        ),
+                                      );
+                                    }
+                                  },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFF00A86B),
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(vertical: 14),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              elevation: 0,
+                            ),
+                            icon: const Icon(
+                              Icons.check_circle_outline,
+                              size: 18,
+                            ),
+                            label: const Text(
+                              "Save & Export",
+                              style: TextStyle(fontWeight: FontWeight.bold),
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
@@ -674,13 +1009,14 @@ class _ESignDialogState extends State<_ESignDialog> {
 
 class _SignaturePainter extends CustomPainter {
   final List<List<Offset>> strokes;
+  final Color inkColor;
 
-  _SignaturePainter({required this.strokes});
+  _SignaturePainter({required this.strokes, required this.inkColor});
 
   @override
   void paint(Canvas canvas, Size size) {
     final strokePaint = Paint()
-      ..color = const Color(0xFF0F172A)
+      ..color = inkColor
       ..strokeCap = StrokeCap.round
       ..strokeWidth = 3.5;
 
