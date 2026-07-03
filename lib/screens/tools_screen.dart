@@ -52,6 +52,137 @@ class _ToolsScreenState extends State<ToolsScreen> {
     }
   }
 
+  // PREMIUM UPGRADED BOTTOM SHEET FOR OCR (CamScanner Look)
+  void _showPremiumOcrBottomSheet(BuildContext context, String text) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      barrierColor: Colors.black45,
+      builder: (context) {
+        return Container(
+          height: MediaQuery.of(context).size.height * 0.70,
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          child: Column(
+            children: [
+              Container(
+                margin: const EdgeInsets.symmetric(vertical: 12),
+                width: 45,
+                height: 5,
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade300,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+              Padding(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text(
+                      "Extracted Text (OCR)",
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF1E293B),
+                        letterSpacing: 0.3,
+                      ),
+                    ),
+                    IconButton(
+                      icon: Icon(Icons.close, color: Colors.grey.shade600),
+                      onPressed: () => Navigator.pop(context),
+                    ),
+                  ],
+                ),
+              ),
+              const Divider(height: 1, thickness: 1),
+              Expanded(
+                child: Container(
+                  color: Colors.grey.shade50,
+                  width: double.infinity,
+                  child: SingleChildScrollView(
+                    physics: const BouncingScrollPhysics(),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 24, vertical: 20),
+                    child: SelectableText(
+                      text.isNotEmpty
+                          ? text
+                          : "No readable text found in image.",
+                      textAlign: TextAlign.start,
+                      style: const TextStyle(
+                        fontSize: 15,
+                        height: 1.6,
+                        color: Color(0xFF334155),
+                        fontWeight: FontWeight.w400,
+                      ),
+                      cursorColor: const Color(0xFF00A86B),
+                      showCursor: true,
+                    ),
+                  ),
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.05),
+                      blurRadius: 10,
+                      offset: const Offset(0, -5),
+                    )
+                  ],
+                ),
+                child: SafeArea(
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          onPressed: text.isEmpty
+                              ? null
+                              : () {
+                                  Clipboard.setData(ClipboardData(text: text));
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text(
+                                          "Copied to clipboard successfully!"),
+                                      backgroundColor: Color(0xFF00A86B),
+                                      behavior: SnackBarBehavior.floating,
+                                    ),
+                                  );
+                                },
+                          icon: const Icon(Icons.copy_all, size: 20),
+                          label: const Text(
+                            "Copy All Text",
+                            style: TextStyle(
+                                fontWeight: FontWeight.bold, fontSize: 15),
+                          ),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF00A86B),
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            elevation: 0,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
   // Tool 3: Gallery OCR
   Future<void> _handleGalleryOcr() async {
     final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
@@ -66,37 +197,7 @@ class _ToolsScreenState extends State<ToolsScreen> {
 
       if (mounted) {
         Navigator.pop(context);
-        showDialog(
-          context: context,
-          builder: (context) => AlertDialog(
-            title: const Text("Extracted Text (OCR)"),
-            content: SingleChildScrollView(
-              child: SelectableText(
-                text.isEmpty ? "No readable text found in image." : text,
-                style: const TextStyle(fontSize: 14),
-              ),
-            ),
-            actions: [
-              if (text.isNotEmpty)
-                TextButton.icon(
-                  onPressed: () {
-                    Clipboard.setData(ClipboardData(text: text));
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                          content: Text("Text copied to clipboard!")),
-                    );
-                  },
-                  icon: const Icon(Icons.copy, color: Color(0xFF00A86B)),
-                  label: const Text("Copy Text",
-                      style: TextStyle(color: Color(0xFF00A86B))),
-                ),
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text("Close"),
-              ),
-            ],
-          ),
-        );
+        _showPremiumOcrBottomSheet(context, text);
       }
     }
   }
@@ -184,7 +285,7 @@ class _ToolsScreenState extends State<ToolsScreen> {
     }
   }
 
-  // Tool 6: Smart Document Enhancer
+  // PREMIUM UPGRADED: Smart Document Enhancer (CamScanner Flow)
   Future<void> _handleDocumentEnhancer() async {
     final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
     if (image != null && mounted) {
@@ -194,17 +295,23 @@ class _ToolsScreenState extends State<ToolsScreen> {
         builder: (_) => const Center(child: CircularProgressIndicator()),
       );
 
+      // Pehle initial default clean enhance image nikalenge
       final enhancedFile =
           await DocumentEnhancerService.enhanceImage(File(image.path));
 
       if (mounted) {
-        Navigator.pop(context);
+        Navigator.pop(context); // Dialog dismiss
+
+        // Premium CamScanner behavior ke liye hum custom mode flag pass kar sakte hain agar aapke screen support karti ho.
+        // Direct premium look preview khulega bina default watermark list ke!
         Navigator.push(
           context,
           MaterialPageRoute(
             builder: (_) => ExportPreviewScreen(
               imagePaths: [enhancedFile.path],
               docTitle: "Magic_Scan_${DateTime.now().millisecondsSinceEpoch}",
+              isEnhancerFlow: true,
+              // Tip: Agar aapke ExportPreviewScreen me logic control hai toh aap dynamic properties use kar sakte hain
             ),
           ),
         );
@@ -646,7 +753,6 @@ class _WatermarkDialogState extends State<_WatermarkDialog> {
   }
 }
 
-// PREMIUM UPGRADED DRAG & RESIZE E-SIGN DIALOG
 class _ESignDialog extends StatefulWidget {
   final File sourceFile;
   const _ESignDialog({required this.sourceFile});
@@ -660,14 +766,12 @@ class _ESignDialogState extends State<_ESignDialog> {
   List<Offset>? _currentStroke;
   bool _isProcessing = false;
 
-  // Premium State Variables for Moving & Resizing
   bool _isSignaturePlaced = false;
   Offset _boxPosition = const Offset(50, 200);
   double _boxWidth = 220.0;
   double _boxHeight = 110.0;
   Color _selectedSignatureColor = const Color(0xFF0F172A);
 
-  // Hand-drawing pad modal
   void _openSignaturePadModal() {
     showDialog(
       context: context,
@@ -776,7 +880,6 @@ class _ESignDialogState extends State<_ESignDialog> {
         body: SafeArea(
           child: Column(
             children: [
-              // 1. Image Viewport Layer
               Expanded(
                 child: Container(
                   color: const Color(0xFF0F172A),
@@ -850,8 +953,6 @@ class _ESignDialogState extends State<_ESignDialog> {
                   ),
                 ),
               ),
-
-              // 2. Bottom CamScanner Tools Controls
               Container(
                 decoration: const BoxDecoration(
                   color: Colors.white,
