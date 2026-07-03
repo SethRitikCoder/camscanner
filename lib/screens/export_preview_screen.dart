@@ -15,7 +15,9 @@ class ExportPreviewScreen extends StatefulWidget {
   final String? folderName;
   final Color initialColor;
   final double initialOpacity;
-  final bool isEnhancerFlow; // Dynamic routing handle karne ke liye premium flag
+  final bool isEnhancerFlow;
+  final bool isPdfConvertorFlow;
+  final bool showWatermarkControls;
 
   const ExportPreviewScreen({
     super.key,
@@ -24,7 +26,9 @@ class ExportPreviewScreen extends StatefulWidget {
     this.folderName,
     this.initialColor = Colors.grey,
     this.initialOpacity = 0.30,
-    this.isEnhancerFlow = false, // Default false taaki baaki screen ka flow na toote
+    this.isEnhancerFlow = false,
+    this.isPdfConvertorFlow = false,
+    this.showWatermarkControls = false,
   });
 
   @override
@@ -43,7 +47,7 @@ class _ExportPreviewScreenState extends State<ExportPreviewScreen> {
   late double _selectedOpacity;
 
   // CamScanner Filter Engine Variables
-  String _selectedFilterMode = "Magic Color"; 
+  String _selectedFilterMode = "Magic Color";
 
   @override
   void initState() {
@@ -51,7 +55,7 @@ class _ExportPreviewScreenState extends State<ExportPreviewScreen> {
     _selectedWatermarkColor = widget.initialColor;
     _selectedOpacity = widget.initialOpacity;
     _calculateSize();
-    _generateLivePreviews(); 
+    _generateLivePreviews();
     AdService.loadInterstitialAd();
   }
 
@@ -68,17 +72,16 @@ class _ExportPreviewScreenState extends State<ExportPreviewScreen> {
           File processedFile = originalFile;
 
           if (widget.isEnhancerFlow) {
-            // CamScanner filter mode logic selection
             if (_selectedFilterMode == "Magic Color") {
-              processedFile = await DocumentEnhancerService.enhanceImage(originalFile);
+              processedFile =
+                  await DocumentEnhancerService.enhanceImage(originalFile);
             } else if (_selectedFilterMode == "Original") {
-              processedFile = originalFile; // No changes
+              processedFile = originalFile;
             } else {
-              // Custom adaptive filter implementations falls back safely to clean contrast
-              processedFile = await DocumentEnhancerService.enhanceImage(originalFile);
+              processedFile =
+                  await DocumentEnhancerService.enhanceImage(originalFile);
             }
-          } else {
-            // Normal general flow me safe customizable watermark processing text apply hoga
+          } else if (widget.showWatermarkControls) {
             processedFile = await WatermarkService.applyWatermark(
               sourceFile: originalFile,
               text: "DocScanner Pro",
@@ -156,7 +159,9 @@ class _ExportPreviewScreenState extends State<ExportPreviewScreen> {
         child: Container(
           padding: const EdgeInsets.symmetric(vertical: 10),
           decoration: BoxDecoration(
-            color: isSelected ? color.withValues(alpha: 0.12) : Colors.grey.shade50,
+            color: isSelected
+                ? color.withValues(alpha: 0.12)
+                : Colors.grey.shade50,
             border: Border.all(
                 color: isSelected ? color : Colors.grey.shade300,
                 width: isSelected ? 2 : 1),
@@ -209,7 +214,8 @@ class _ExportPreviewScreenState extends State<ExportPreviewScreen> {
           children: [
             Icon(
               iconData,
-              color: isSelected ? const Color(0xFF00A86B) : Colors.grey.shade600,
+              color:
+                  isSelected ? const Color(0xFF00A86B) : Colors.grey.shade600,
               size: 24,
             ),
             const SizedBox(height: 6),
@@ -218,7 +224,8 @@ class _ExportPreviewScreenState extends State<ExportPreviewScreen> {
               style: TextStyle(
                 fontSize: 11,
                 fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-                color: isSelected ? const Color(0xFF00A86B) : Colors.grey.shade700,
+                color:
+                    isSelected ? const Color(0xFF00A86B) : Colors.grey.shade700,
               ),
             ),
           ],
@@ -232,7 +239,8 @@ class _ExportPreviewScreenState extends State<ExportPreviewScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
       appBar: AppBar(
-        title: Text(widget.isEnhancerFlow ? "Enhance & Export" : "Export Preview"),
+        title:
+            Text(widget.isEnhancerFlow ? "Enhance & Export" : "Export Preview"),
         backgroundColor: const Color(0xFF00A86B),
         foregroundColor: Colors.white,
         elevation: 0,
@@ -246,7 +254,8 @@ class _ExportPreviewScreenState extends State<ExportPreviewScreen> {
                 children: [
                   _previewFiles.isEmpty
                       ? const Center(
-                          child: CircularProgressIndicator(color: Color(0xFF00A86B)))
+                          child: CircularProgressIndicator(
+                              color: Color(0xFF00A86B)))
                       : PageView.builder(
                           itemCount: _previewFiles.length,
                           itemBuilder: (context, index) {
@@ -272,7 +281,8 @@ class _ExportPreviewScreenState extends State<ExportPreviewScreen> {
                                       Positioned.fill(
                                         child: Container(
                                           color: Colors.white,
-                                          child: Image.file(currentFile, fit: BoxFit.contain),
+                                          child: Image.file(currentFile,
+                                              fit: BoxFit.contain),
                                         ),
                                       ),
                                       const Positioned(
@@ -281,7 +291,8 @@ class _ExportPreviewScreenState extends State<ExportPreviewScreen> {
                                         child: CircleAvatar(
                                           radius: 18,
                                           backgroundColor: Colors.black54,
-                                          child: Icon(Icons.zoom_in, color: Colors.white, size: 18),
+                                          child: Icon(Icons.zoom_in,
+                                              color: Colors.white, size: 18),
                                         ),
                                       ),
                                     ],
@@ -295,7 +306,8 @@ class _ExportPreviewScreenState extends State<ExportPreviewScreen> {
                     Container(
                       color: Colors.black12,
                       child: const Center(
-                        child: CircularProgressIndicator(color: Color(0xFF00A86B)),
+                        child:
+                            CircularProgressIndicator(color: Color(0xFF00A86B)),
                       ),
                     ),
                 ],
@@ -306,139 +318,179 @@ class _ExportPreviewScreenState extends State<ExportPreviewScreen> {
             widget.isEnhancerFlow
                 ? Container(
                     height: 100,
-                    margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    margin:
+                        const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                     child: ListView(
                       scrollDirection: Axis.horizontal,
                       physics: const BouncingScrollPhysics(),
                       children: [
                         _buildFilterItem("Original", Icons.image_outlined),
                         _buildFilterItem("Magic Color", Icons.auto_fix_high),
-                        _buildFilterItem("Sharp B&W", Icons.palette_outlined ),
-                        _buildFilterItem("Clean Gray", Icons.filter_b_and_w_outlined),
+                        _buildFilterItem("Sharp B&W", Icons.palette_outlined),
+                        _buildFilterItem(
+                            "Clean Gray", Icons.filter_b_and_w_outlined),
                       ],
                     ),
                   )
-                : Card(
-                    margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                    elevation: 3,
-                    color: Colors.white,
-                    child: Padding(
-                      padding: const EdgeInsets.all(16.0),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            "Watermark Style",
-                            style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+                : Column(
+                    children: [
+                      if (widget.showWatermarkControls)
+                        Card(
+                          margin: const EdgeInsets.symmetric(
+                              horizontal: 16, vertical: 8),
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16)),
+                          elevation: 3,
+                          color: Colors.white,
+                          child: Padding(
+                            padding: const EdgeInsets.all(16.0),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text(
+                                  "Watermark Style",
+                                  style: TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.bold,
+                                      color: Color(0xFF0F172A)),
+                                ),
+                                const SizedBox(height: 8),
+                                Row(
+                                  children: [
+                                    _buildColorChip(Colors.grey, "Grey"),
+                                    const SizedBox(width: 8),
+                                    _buildColorChip(Colors.blue, "Blue"),
+                                    const SizedBox(width: 8),
+                                    _buildColorChip(Colors.red, "Red"),
+                                  ],
+                                ),
+                                const SizedBox(height: 12),
+                                Row(
+                                  children: [
+                                    const Text(
+                                      "Opacity:",
+                                      style: TextStyle(
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.bold,
+                                          color: Color(0xFF0F172A)),
+                                    ),
+                                    Expanded(
+                                      child: SliderTheme(
+                                        data: SliderTheme.of(context).copyWith(
+                                          activeTrackColor:
+                                              const Color(0xFF00A86B),
+                                          inactiveTrackColor:
+                                              Colors.grey.shade200,
+                                          thumbColor: const Color(0xFF00A86B),
+                                          overlayColor: const Color(0xFF00A86B)
+                                              .withValues(alpha: 0.2),
+                                          tickMarkShape:
+                                              const RoundSliderTickMarkShape(
+                                                  tickMarkRadius: 2.5),
+                                          activeTickMarkColor:
+                                              const Color(0xFF00A86B),
+                                          inactiveTickMarkColor:
+                                              Colors.grey.shade400,
+                                        ),
+                                        child: Slider(
+                                          value: _selectedOpacity,
+                                          min: 0.10,
+                                          max: 0.80,
+                                          divisions: 7,
+                                          label: _selectedOpacity
+                                              .toStringAsFixed(2),
+                                          onChanged: (newValue) {
+                                            setState(() {
+                                              _selectedOpacity = newValue;
+                                            });
+                                          },
+                                          onChangeEnd: (newValue) {
+                                            _generateLivePreviews();
+                                          },
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
                           ),
-                          const SizedBox(height: 8),
-                          Row(
-                            children: [
-                              _buildColorChip(Colors.grey, "Grey"),
-                              const SizedBox(width: 8),
-                              _buildColorChip(Colors.blue, "Blue"),
-                              const SizedBox(width: 8),
-                              _buildColorChip(Colors.red, "Red"),
-                            ],
-                          ),
-                          const SizedBox(height: 12),
-                          Row(
+                        ),
+                      Card(
+                        margin: EdgeInsets.fromLTRB(
+                            16, widget.showWatermarkControls ? 4 : 8, 16, 16),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16)),
+                        elevation: 3,
+                        color: Colors.white,
+                        child: Padding(
+                          padding: const EdgeInsets.all(16.0),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               const Text(
-                                "Opacity:",
-                                style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+                                "Size Optimization",
+                                style: TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.bold,
+                                    color: Color(0xFF0F172A)),
                               ),
-                              Expanded(
-                                child: SliderTheme(
-                                  data: SliderTheme.of(context).copyWith(
-                                    activeTrackColor: const Color(0xFF00A86B),
-                                    inactiveTrackColor: Colors.grey.shade200,
-                                    thumbColor: const Color(0xFF00A86B),
-                                    overlayColor: const Color(0xFF00A86B).withValues(alpha: 0.2),
-                                    tickMarkShape: const RoundSliderTickMarkShape(tickMarkRadius: 2.5),
-                                    activeTickMarkColor: const Color(0xFF00A86B),
-                                    inactiveTickMarkColor: Colors.grey.shade400,
-                                  ),
-                                  child: Slider(
-                                    value: _selectedOpacity,
-                                    min: 0.10,
-                                    max: 0.80,
-                                    divisions: 7,
-                                    label: _selectedOpacity.toStringAsFixed(2),
-                                    onChanged: (newValue) {
-                                      setState(() {
-                                        _selectedOpacity = newValue;
-                                      });
-                                    },
-                                    onChangeEnd: (newValue) {
-                                      _generateLivePreviews();
-                                    },
-                                  ),
+                              const SizedBox(height: 8),
+                              SizedBox(
+                                width: double.infinity,
+                                child: SegmentedButton<CompressionQuality>(
+                                  showSelectedIcon: false,
+                                  segments: const [
+                                    ButtonSegment(
+                                        value: CompressionQuality.low,
+                                        label: Text("Low")),
+                                    ButtonSegment(
+                                        value: CompressionQuality.medium,
+                                        label: Text("Medium")),
+                                    ButtonSegment(
+                                        value: CompressionQuality.original,
+                                        label: Text("Original")),
+                                  ],
+                                  selected: {_selectedQuality},
+                                  onSelectionChanged:
+                                      (Set<CompressionQuality> newSelection) {
+                                    setState(() {
+                                      _selectedQuality = newSelection.first;
+                                    });
+                                    _calculateSize();
+                                  },
                                 ),
+                              ),
+                              const SizedBox(height: 10),
+                              Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  const Text("Estimated Size:",
+                                      style: TextStyle(
+                                          fontWeight: FontWeight.w600)),
+                                  Text(
+                                    _estimatedSizeText,
+                                    style: const TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        color: Color(0xFF00A86B),
+                                        fontSize: 16),
+                                  ),
+                                ],
                               ),
                             ],
                           ),
-                        ],
-                      ),
-                    ),
-                  ),
-
-            // Global Generic Size Optimization Section
-            Card(
-              margin: const EdgeInsets.fromLTRB(16, 4, 16, 16),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-              elevation: 3,
-              color: Colors.white,
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      "Size Optimization",
-                      style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
-                    ),
-                    const SizedBox(height: 8),
-                    SizedBox(
-                      width: double.infinity,
-                      child: SegmentedButton<CompressionQuality>(
-                        showSelectedIcon: false,
-                        segments: const [
-                          ButtonSegment(value: CompressionQuality.low, label: Text("Low")),
-                          ButtonSegment(value: CompressionQuality.medium, label: Text("Medium")),
-                          ButtonSegment(value: CompressionQuality.original, label: Text("Original")),
-                        ],
-                        selected: {_selectedQuality},
-                        onSelectionChanged: (Set<CompressionQuality> newSelection) {
-                          setState(() {
-                            _selectedQuality = newSelection.first;
-                          });
-                          _calculateSize();
-                        },
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Text("Estimated Size:", style: TextStyle(fontWeight: FontWeight.w600)),
-                        Text(
-                          _estimatedSizeText,
-                          style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF00A86B), fontSize: 16),
                         ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            ),
+                      ),
+                    ],
+                  ),
           ],
         ),
       ),
       bottomNavigationBar: Container(
         color: Colors.white,
-        padding: EdgeInsets.fromLTRB(16, 12, 16, 12 + MediaQuery.of(context).padding.bottom),
+        padding: EdgeInsets.fromLTRB(
+            16, 12, 16, 12 + MediaQuery.of(context).padding.bottom),
         child: Row(
           children: [
             Expanded(
@@ -448,9 +500,11 @@ class _ExportPreviewScreenState extends State<ExportPreviewScreen> {
                   foregroundColor: const Color(0xFF00A86B),
                   side: const BorderSide(color: Color(0xFF00A86B), width: 1.5),
                   padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12)),
                 ),
-                child: const Text("Export JPEG", style: TextStyle(fontWeight: FontWeight.bold)),
+                child: const Text("Export JPEG",
+                    style: TextStyle(fontWeight: FontWeight.bold)),
               ),
             ),
             const SizedBox(width: 12),
@@ -462,9 +516,11 @@ class _ExportPreviewScreenState extends State<ExportPreviewScreen> {
                   foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(vertical: 14),
                   elevation: 0,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12)),
                 ),
-                child: const Text("Export PDF", style: TextStyle(fontWeight: FontWeight.bold)),
+                child: const Text("Export PDF",
+                    style: TextStyle(fontWeight: FontWeight.bold)),
               ),
             ),
           ],

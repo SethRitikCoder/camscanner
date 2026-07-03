@@ -272,6 +272,7 @@ class _ToolsScreenState extends State<ToolsScreen> {
               builder: (_) => ExportPreviewScreen(
                 imagePaths: extractedImages.map((e) => e.path).toList(),
                 docTitle: "PDF_Pages_${DateTime.now().millisecondsSinceEpoch}",
+                isPdfConvertorFlow: true,
               ),
             ),
           );
@@ -547,19 +548,32 @@ class _CompressorDialogState extends State<_CompressorDialog> {
           const Text("Select Compression Level:",
               style: TextStyle(fontWeight: FontWeight.bold)),
           const SizedBox(height: 8),
-          SegmentedButton<CompressionQuality>(
-            segments: const [
-              ButtonSegment(value: CompressionQuality.low, label: Text("Low")),
-              ButtonSegment(
-                  value: CompressionQuality.medium, label: Text("Medium")),
-              ButtonSegment(
-                  value: CompressionQuality.original, label: Text("Original")),
-            ],
-            selected: {_quality},
-            onSelectionChanged: (selection) {
-              setState(() => _quality = selection.first);
-              _updateSizes();
-            },
+          SizedBox(
+            width: double.infinity,
+            child: SegmentedButton<CompressionQuality>(
+              showSelectedIcon: false,
+              segments: const [
+                ButtonSegment(
+                  value: CompressionQuality.low,
+                  label: Text("Low"),
+                ),
+                ButtonSegment(
+                  value: CompressionQuality.medium,
+                  label: Text("Medium"),
+                ),
+                ButtonSegment(
+                  value: CompressionQuality.original,
+                  label: Text("Original"),
+                ),
+              ],
+              selected: {_quality},
+              onSelectionChanged: (Set<CompressionQuality> newSelection) {
+                setState(() {
+                  _quality = newSelection.first;
+                });
+                _updateSizes();
+              },
+            ),
           ),
           const SizedBox(height: 16),
           Container(
@@ -738,6 +752,7 @@ class _WatermarkDialogState extends State<_WatermarkDialog> {
                           imagePaths: [wmFile.path],
                           docTitle:
                               "Watermarked_${DateTime.now().millisecondsSinceEpoch}",
+                          showWatermarkControls: true,
                         ),
                       ),
                     );
