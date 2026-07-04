@@ -636,7 +636,7 @@ class _WatermarkDialog extends StatefulWidget {
 
 class _WatermarkDialogState extends State<_WatermarkDialog> {
   final TextEditingController _textController =
-      TextEditingController(text: "CONFIDENTIAL");
+      TextEditingController(text: "DocScanner Pro");
   double _opacity = 0.3;
   bool _isProcessing = false;
   Color _selectedColor = Colors.grey;
@@ -753,6 +753,7 @@ class _WatermarkDialogState extends State<_WatermarkDialog> {
                           docTitle:
                               "Watermarked_${DateTime.now().millisecondsSinceEpoch}",
                           showWatermarkControls: true,
+                          watermarkText: text,
                         ),
                       ),
                     );

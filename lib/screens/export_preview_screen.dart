@@ -1,6 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:share_plus/share_plus.dart';
+import 'package:share_plus/share_plus.dart'; //hii
 import 'package:path/path.dart' as p;
 import '../services/ad_service.dart';
 import '../services/compression_service.dart';
@@ -18,6 +18,7 @@ class ExportPreviewScreen extends StatefulWidget {
   final bool isEnhancerFlow;
   final bool isPdfConvertorFlow;
   final bool showWatermarkControls;
+  final String watermarkText;
 
   const ExportPreviewScreen({
     super.key,
@@ -29,6 +30,7 @@ class ExportPreviewScreen extends StatefulWidget {
     this.isEnhancerFlow = false,
     this.isPdfConvertorFlow = false,
     this.showWatermarkControls = false,
+    this.watermarkText = "DocScanner Pro",
   });
 
   @override
@@ -38,7 +40,8 @@ class ExportPreviewScreen extends StatefulWidget {
 class _ExportPreviewScreenState extends State<ExportPreviewScreen> {
   CompressionQuality _selectedQuality = CompressionQuality.medium;
   String _estimatedSizeText = "Calculating...";
-  bool _isExporting = false;
+  bool _isExportingJpeg = false;
+  bool _isExportingPdf = false;
 
   bool _isLiveUpdating = false;
   List<File> _previewFiles = [];
@@ -84,7 +87,7 @@ class _ExportPreviewScreenState extends State<ExportPreviewScreen> {
           } else if (widget.showWatermarkControls) {
             processedFile = await WatermarkService.applyWatermark(
               sourceFile: originalFile,
-              text: "DocScanner Pro",
+              text: widget.watermarkText,
               opacity: _selectedOpacity,
               watermarkColor: _selectedWatermarkColor,
             );
@@ -495,32 +498,174 @@ class _ExportPreviewScreenState extends State<ExportPreviewScreen> {
           children: [
             Expanded(
               child: OutlinedButton(
-                onPressed: () {},
+                onPressed: (_isExportingJpeg || _isExportingPdf)
+                    ? null
+                    : () async {
+                        if (_previewFiles.isEmpty) {
+                          if (!mounted) return;
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                                content: Text(
+                                    'No processed images available to export.')),
+                          );
+                          return;
+                        }
+
+                        final messenger = ScaffoldMessenger.of(context);
+                        setState(() {
+                          _isExportingJpeg = true;
+                          _isExportingPdf = false;
+                        });
+
+                        try {
+                          final outputDir =
+                              await StorageService.getPublicDirectory(
+                            folderName: widget.folderName,
+                          );
+                          final savedFiles = <File>[];
+
+                          for (int i = 0; i < _previewFiles.length; i++) {
+                            final sourceFile = _previewFiles[i];
+                            final compressedFile =
+                                await CompressionService.compressImage(
+                              sourceFile,
+                              _selectedQuality,
+                            );
+                            final outputPath = p.join(
+                              outputDir.path,
+                              '${widget.docTitle.replaceAll(RegExp(r"[^A-Za-z0-9._-]"), '_')}_${i + 1}.jpg',
+                            );
+                            final exportedFile = File(outputPath);
+                            await exportedFile.writeAsBytes(
+                              await compressedFile.readAsBytes(),
+                            );
+                            savedFiles.add(exportedFile);
+                          }
+
+                          if (!mounted) return;
+                          if (savedFiles.isNotEmpty) {
+                            await Share.shareXFiles(
+                              savedFiles
+                                  .map((file) => XFile(file.path))
+                                  .toList(),
+                              subject: '${widget.docTitle} JPEG Export',
+                            );
+                          }
+
+                          if (!mounted) return;
+                          messenger.showSnackBar(
+                            SnackBar(
+                                content: Text(
+                                    'Exported ${savedFiles.length} JPEG file${savedFiles.length == 1 ? '' : 's'}.')),
+                          );
+                        } catch (e) {
+                          if (mounted) {
+                            messenger.showSnackBar(
+                              const SnackBar(
+                                  content: Text('JPEG export failed.')),
+                            );
+                          }
+                        } finally {
+                          if (mounted) {
+                            setState(() => _isExportingJpeg = false);
+                          }
+                        }
+                      },
                 style: OutlinedButton.styleFrom(
-                  foregroundColor: const Color(0xFF00A86B),
-                  side: const BorderSide(color: Color(0xFF00A86B), width: 1.5),
+                  foregroundColor: _isExportingJpeg
+                      ? Colors.grey.shade500
+                      : ((_isExportingJpeg || _isExportingPdf)
+                          ? Colors.grey.shade500
+                          : const Color(0xFF00A86B)),
+                  side: BorderSide(
+                    color: _isExportingJpeg
+                        ? Colors.grey.shade400
+                        : ((_isExportingJpeg || _isExportingPdf)
+                            ? Colors.grey.shade400
+                            : const Color(0xFF00A86B)),
+                    width: 1.5,
+                  ),
                   padding: const EdgeInsets.symmetric(vertical: 14),
                   shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12)),
                 ),
-                child: const Text("Export JPEG",
-                    style: TextStyle(fontWeight: FontWeight.bold)),
+                child: _isExportingJpeg
+                    ? const Text("Exporting...",
+                        style: TextStyle(fontWeight: FontWeight.bold))
+                    : const Text("Export JPEG",
+                        style: TextStyle(fontWeight: FontWeight.bold)),
               ),
             ),
             const SizedBox(width: 12),
             Expanded(
               child: ElevatedButton(
-                onPressed: () {},
+                onPressed: (_isExportingJpeg || _isExportingPdf)
+                    ? null
+                    : () async {
+                        if (_previewFiles.isEmpty) {
+                          if (!mounted) return;
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                                content: Text(
+                                    'No processed images available to export.')),
+                          );
+                          return;
+                        }
+
+                        final messenger = ScaffoldMessenger.of(context);
+                        setState(() {
+                          _isExportingPdf = true;
+                          _isExportingJpeg = false;
+                        });
+
+                        try {
+                          final pdfFile = await PdfService.generatePdf(
+                            _previewFiles,
+                            widget.docTitle,
+                            folderName: widget.folderName,
+                          );
+
+                          if (!mounted) return;
+                          await Share.shareXFiles(
+                            [XFile(pdfFile.path)],
+                            subject: '${widget.docTitle} PDF Export',
+                          );
+
+                          if (!mounted) return;
+                          messenger.showSnackBar(
+                            const SnackBar(
+                                content: Text('PDF exported successfully.')),
+                          );
+                        } catch (e) {
+                          if (mounted) {
+                            messenger.showSnackBar(
+                              const SnackBar(
+                                  content: Text('PDF export failed.')),
+                            );
+                          }
+                        } finally {
+                          if (mounted) {
+                            setState(() => _isExportingPdf = false);
+                          }
+                        }
+                      },
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF00A86B),
+                  backgroundColor: _isExportingPdf
+                      ? Colors.grey.shade400
+                      : ((_isExportingJpeg || _isExportingPdf)
+                          ? Colors.grey.shade400
+                          : const Color(0xFF00A86B)),
                   foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(vertical: 14),
                   elevation: 0,
                   shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12)),
                 ),
-                child: const Text("Export PDF",
-                    style: TextStyle(fontWeight: FontWeight.bold)),
+                child: _isExportingPdf
+                    ? const Text("Exporting...",
+                        style: TextStyle(fontWeight: FontWeight.bold))
+                    : const Text("Export PDF",
+                        style: TextStyle(fontWeight: FontWeight.bold)),
               ),
             ),
           ],
