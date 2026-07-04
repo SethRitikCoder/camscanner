@@ -1,13 +1,13 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:share_plus/share_plus.dart'; //hii
+import 'package:share_plus/share_plus.dart';
 import 'package:path/path.dart' as p;
 import '../services/ad_service.dart';
 import '../services/compression_service.dart';
 import '../services/pdf_service.dart';
 import '../services/storage_service.dart';
 import '../services/watermark_service.dart';
-import '../services/document_enhancer_service.dart'; // Enhancer service ko link kiya
+import '../services/document_enhancer_service.dart';
 
 class ExportPreviewScreen extends StatefulWidget {
   final List<String> imagePaths;
@@ -49,7 +49,7 @@ class _ExportPreviewScreenState extends State<ExportPreviewScreen> {
   late Color _selectedWatermarkColor;
   late double _selectedOpacity;
 
-  // CamScanner Filter Engine Variables
+  // Filter selection for live document enhancement.
   String _selectedFilterMode = "Magic Color";
 
   @override
@@ -62,7 +62,7 @@ class _ExportPreviewScreenState extends State<ExportPreviewScreen> {
     AdService.loadInterstitialAd();
   }
 
-  // Live Engine: Dono flows (Watermark aur Enhancer Filters) ko single pipeline me set kiya
+  // Generates the current preview from the original input files.
   Future<void> _generateLivePreviews() async {
     if (!mounted) return;
     setState(() => _isLiveUpdating = true);
@@ -75,14 +75,13 @@ class _ExportPreviewScreenState extends State<ExportPreviewScreen> {
           File processedFile = originalFile;
 
           if (widget.isEnhancerFlow) {
-            if (_selectedFilterMode == "Magic Color") {
-              processedFile =
-                  await DocumentEnhancerService.enhanceImage(originalFile);
-            } else if (_selectedFilterMode == "Original") {
+            if (_selectedFilterMode == "Original") {
               processedFile = originalFile;
             } else {
-              processedFile =
-                  await DocumentEnhancerService.enhanceImage(originalFile);
+              processedFile = await DocumentEnhancerService.enhanceImage(
+                originalFile,
+                mode: _selectedFilterMode,
+              );
             }
           } else if (widget.showWatermarkControls) {
             processedFile = await WatermarkService.applyWatermark(
@@ -190,7 +189,7 @@ class _ExportPreviewScreenState extends State<ExportPreviewScreen> {
     );
   }
 
-  // Premium Custom Filter Item Component for CamScanner Look
+  // Filter item used by the enhancement preview strip.
   Widget _buildFilterItem(String modeName, IconData iconData) {
     final isSelected = _selectedFilterMode == modeName;
     return GestureDetector(
@@ -317,7 +316,7 @@ class _ExportPreviewScreenState extends State<ExportPreviewScreen> {
               ),
             ),
 
-            // Premium Bottom Layout Changer Control
+            // Bottom controls
             widget.isEnhancerFlow
                 ? Container(
                     height: 100,

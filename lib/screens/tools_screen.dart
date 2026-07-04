@@ -5,12 +5,10 @@ import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:share_plus/share_plus.dart';
 import '../services/compression_service.dart';
-import '../services/document_enhancer_service.dart';
 import '../services/esign_service.dart';
 import '../services/id_card_service.dart';
 import '../services/ocr_service.dart';
 import '../services/pdf_to_image_service.dart';
-import '../services/watermark_service.dart';
 import 'export_preview_screen.dart';
 
 class ToolsScreen extends StatefulWidget {
@@ -286,37 +284,20 @@ class _ToolsScreenState extends State<ToolsScreen> {
     }
   }
 
-  // PREMIUM UPGRADED: Smart Document Enhancer (CamScanner Flow)
+  // Tool 6: Smart Document Enhancer
   Future<void> _handleDocumentEnhancer() async {
     final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
     if (image != null && mounted) {
-      showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder: (_) => const Center(child: CircularProgressIndicator()),
-      );
-
-      // Pehle initial default clean enhance image nikalenge
-      final enhancedFile =
-          await DocumentEnhancerService.enhanceImage(File(image.path));
-
-      if (mounted) {
-        Navigator.pop(context); // Dialog dismiss
-
-        // Premium CamScanner behavior ke liye hum custom mode flag pass kar sakte hain agar aapke screen support karti ho.
-        // Direct premium look preview khulega bina default watermark list ke!
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (_) => ExportPreviewScreen(
-              imagePaths: [enhancedFile.path],
-              docTitle: "Magic_Scan_${DateTime.now().millisecondsSinceEpoch}",
-              isEnhancerFlow: true,
-              // Tip: Agar aapke ExportPreviewScreen me logic control hai toh aap dynamic properties use kar sakte hain
-            ),
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => ExportPreviewScreen(
+            imagePaths: [image.path],
+            docTitle: "Magic_Scan_${DateTime.now().millisecondsSinceEpoch}",
+            isEnhancerFlow: true,
           ),
-        );
-      }
+        ),
+      );
     }
   }
 
@@ -638,7 +619,6 @@ class _WatermarkDialogState extends State<_WatermarkDialog> {
   final TextEditingController _textController =
       TextEditingController(text: "DocScanner Pro");
   double _opacity = 0.3;
-  bool _isProcessing = false;
   Color _selectedColor = Colors.grey;
 
   Widget _buildDialogColorChip(Color color, String label) {
@@ -729,36 +709,26 @@ class _WatermarkDialogState extends State<_WatermarkDialog> {
           child: const Text("Cancel"),
         ),
         ElevatedButton(
-          onPressed: _isProcessing
-              ? null
-              : () async {
-                  final text = _textController.text.trim();
-                  if (text.isEmpty) return;
-                  setState(() => _isProcessing = true);
+          onPressed: () {
+            final text = _textController.text.trim();
+            if (text.isEmpty) return;
 
-                  final wmFile = await WatermarkService.applyWatermark(
-                    sourceFile: widget.sourceFile,
-                    text: text,
-                    opacity: _opacity,
-                    watermarkColor: _selectedColor,
-                  );
-
-                  if (context.mounted) {
-                    Navigator.pop(context);
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => ExportPreviewScreen(
-                          imagePaths: [wmFile.path],
-                          docTitle:
-                              "Watermarked_${DateTime.now().millisecondsSinceEpoch}",
-                          showWatermarkControls: true,
-                          watermarkText: text,
-                        ),
-                      ),
-                    );
-                  }
-                },
+            Navigator.pop(context);
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => ExportPreviewScreen(
+                  imagePaths: [widget.sourceFile.path],
+                  docTitle:
+                      "Watermarked_${DateTime.now().millisecondsSinceEpoch}",
+                  initialColor: _selectedColor,
+                  initialOpacity: _opacity,
+                  showWatermarkControls: true,
+                  watermarkText: text,
+                ),
+              ),
+            );
+          },
           style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFF00A86B),
               foregroundColor: Colors.white),

@@ -6,12 +6,11 @@ import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as p;
 
 class WatermarkService {
-  /// Programmatically overlays a premium repeated grid watermark text over an image with custom color.
   static Future<File> applyWatermark({
     required File sourceFile,
     required String text,
     required double opacity,
-    required Color watermarkColor, // Naya dynamic color parameter
+    required Color watermarkColor,
   }) async {
     final bytes = await sourceFile.readAsBytes();
     final ui.Codec codec = await ui.instantiateImageCodec(bytes);
@@ -24,17 +23,14 @@ class WatermarkService {
     final ui.PictureRecorder recorder = ui.PictureRecorder();
     final Canvas canvas = Canvas(recorder, Rect.fromLTWH(0, 0, width, height));
 
-    // 1. Original image draw ki
     canvas.drawImage(
         image, Offset.zero, Paint()..filterQuality = FilterQuality.high);
 
-    // 2. Tiled Text setup dynamic color ke sath
     final TextPainter textPainter = TextPainter(
       text: TextSpan(
         text: text.toUpperCase(),
         style: TextStyle(
-          color: watermarkColor.withValues(
-              alpha: opacity), // Ab ye dynamic rang lega!
+          color: watermarkColor.withValues(alpha: opacity),
           fontSize: width * 0.045,
           fontWeight: FontWeight.bold,
           letterSpacing: 3.0,
@@ -49,7 +45,7 @@ class WatermarkService {
 
     canvas.save();
     canvas.translate(width / 2, height / 2);
-    canvas.rotate(-0.785398); // -45 degree dynamic rotation
+    canvas.rotate(-math.pi / 4);
     canvas.translate(-width / 2, -height / 2);
 
     for (double x = -width * 0.5; x < width * 1.5; x += stepX) {
@@ -60,7 +56,6 @@ class WatermarkService {
 
     canvas.restore();
 
-    // 3. Image save pipeline
     final ui.Picture picture = recorder.endRecording();
     final ui.Image watermarkedImage =
         await picture.toImage(image.width, image.height);
