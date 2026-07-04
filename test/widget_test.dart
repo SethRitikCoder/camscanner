@@ -81,15 +81,16 @@ void main() {
     // Verify clear button is shown in textfield
     expect(find.byIcon(Icons.cancel), findsOneWidget);
 
-    // Verify document loaded and is displayed
-    expect(find.textContaining('Test Document'), findsWidgets);
-    expect(find.textContaining('test OCR'), findsWidgets);
+    // Verify empty search state is displayed
+    expect(find.textContaining('No results found for "test"'), findsOneWidget);
+    expect(find.text('Clear Search'), findsOneWidget);
 
-    // Tap the clear button
-    await tester.tap(find.byIcon(Icons.cancel));
+    // Tap the clear search button on empty state
+    await tester.tap(find.text('Clear Search'));
     await tester.pumpAndSettle();
 
     // Verify search is cleared
     expect(find.byIcon(Icons.cancel), findsNothing);
+    expect(find.textContaining('No saved files found'), findsOneWidget);
   });
 }
