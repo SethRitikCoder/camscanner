@@ -37,6 +37,7 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _isBannerLoaded = false;
   Timer? _searchDebounce;
   final FocusNode _searchFocusNode = FocusNode();
+  final TextEditingController _searchController = TextEditingController();
 
   @override
   void initState() {
@@ -62,11 +63,66 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _onSearchChanged(String val) {
+    setState(() {}); // Immediately rebuild to show/hide the cancel/clear button
     if (_searchDebounce?.isActive ?? false) _searchDebounce!.cancel();
-    _searchDebounce = Timer(const Duration(milliseconds: 300), () {
-      _searchQuery = val;
-      _loadData();
+    _searchDebounce = Timer(const Duration(milliseconds: 300), () async {
+      setState(() {
+        _searchQuery = val;
+      });
+      await _loadData();
     });
+  }
+
+  void _clearSearch() {
+    _searchController.clear();
+    if (_searchDebounce?.isActive ?? false) _searchDebounce!.cancel();
+    setState(() {
+      _searchQuery = "";
+    });
+    _loadData();
+  }
+
+  Widget _highlightedText(
+    String text,
+    String? query, {
+    required TextStyle baseStyle,
+    required TextStyle highlightStyle,
+  }) {
+    if (query == null || query.trim().isEmpty) {
+      return Text(text, style: baseStyle, maxLines: 1, overflow: TextOverflow.ellipsis);
+    }
+
+    final cleanQuery = query.trim();
+    final lowerText = text.toLowerCase();
+    final lowerQuery = cleanQuery.toLowerCase();
+
+    final List<TextSpan> spans = [];
+    int start = 0;
+
+    while (true) {
+      final index = lowerText.indexOf(lowerQuery, start);
+      if (index == -1) {
+        spans.add(TextSpan(text: text.substring(start), style: baseStyle));
+        break;
+      }
+
+      if (index > start) {
+        spans.add(TextSpan(text: text.substring(start, index), style: baseStyle));
+      }
+
+      spans.add(TextSpan(
+        text: text.substring(index, index + cleanQuery.length),
+        style: highlightStyle,
+      ));
+
+      start = index + cleanQuery.length;
+    }
+
+    return Text.rich(
+      TextSpan(children: spans),
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+    );
   }
 
   Future<void> _loadData() async {
@@ -81,91 +137,142 @@ class _HomeScreenState extends State<HomeScreen> {
     await _loadLocalFiles();
   }
 
+  String _extractSnippet(String text, String query, {int contextLength = 40}) {
+    if (text.isEmpty || query.isEmpty) return '';
+    
+    final lowerText = text.toLowerCase();
+    final lowerQuery = query.toLowerCase();
+    final index = lowerText.indexOf(lowerQuery);
+    
+    if (index == -1) return '';
+    
+    final start = (index - contextLength).clamp(0, text.length);
+    final end = (index + query.length + contextLength).clamp(0, text.length);
+    
+    String snippet = text.substring(start, end);
+    if (start > 0) snippet = '...$snippet';
+    if (end < text.length) snippet = '$snippet...';
+    
+    return snippet.replaceAll('\n', ' ').trim();
+  }
+
   Future<void> _loadLocalFiles() async {
     try {
-      String? activeFolderName;
-      if (_selectedFolderId != null && _folders.isNotEmpty) {
-        final folderIndex =
-            _folders.indexWhere((f) => f.id == _selectedFolderId);
-        if (folderIndex != -1) {
-          activeFolderName = _folders[folderIndex].name;
-        }
-      }
+      final List<LocalFileItem> items = [];
+      
+      // If search query is active, use database search
+      if (_searchQuery.trim().isNotEmpty) {
+        final documents = await DatabaseHelper.instance.searchDocuments(
+          query: _searchQuery,
+          folderId: _selectedFolderId,
+          limit: 50,
+        );
+        
+        for (var doc in documents) {
+          try {
+            // Get first page path from the document
+            if (doc.pagePaths.isNotEmpty) {
+              final firstPagePath = doc.pagePaths[0];
+              final file = File(firstPagePath);
+              
+              if (await file.exists()) {
+                final length = await file.length();
+                final modifiedTime = await file.lastModified();
+                final isPdf = firstPagePath.toLowerCase().endsWith('.pdf');
+                final fileSizeText = CompressionService.formatBytes(length);
+                final formattedDate =
+                    "${modifiedTime.year}-${modifiedTime.month.toString().padLeft(2, '0')}-${modifiedTime.day.toString().padLeft(2, '0')} ${modifiedTime.hour.toString().padLeft(2, '0')}:${modifiedTime.minute.toString().padLeft(2, '0')}";
 
-      final dir =
-          await StorageService.getPublicDirectory(folderName: activeFolderName);
-      List<File> filesList = [];
+                final snippet = _extractSnippet(doc.extractedText, _searchQuery);
 
-      if (_selectedFolderId == null) {
-        final rootDir = await StorageService.getPublicDirectory();
-        if (await rootDir.exists()) {
-          await for (final entity
-              in rootDir.list(recursive: true, followLinks: false)) {
-            if (entity is File) {
-              final path = entity.path.toLowerCase();
-              if (path.endsWith('.pdf') ||
-                  path.endsWith('.jpg') ||
-                  path.endsWith('.jpeg') ||
-                  path.endsWith('.png')) {
-                if (_searchQuery.trim().isNotEmpty) {
-                  final fileName = p.basename(entity.path).toLowerCase();
-                  if (fileName.contains(_searchQuery.toLowerCase())) {
-                    filesList.add(entity);
-                  }
-                } else {
-                  filesList.add(entity);
-                }
+                items.add(LocalFileItem(
+                  file: file,
+                  name: doc.title,
+                  displayTitle: doc.title,
+                  fileSizeText: fileSizeText,
+                  modifiedTime: modifiedTime,
+                  formattedDate: formattedDate,
+                  isPdf: isPdf,
+                  highlightQuery: _searchQuery,
+                  extractedTextSnippet: snippet,
+                ));
               }
             }
+          } catch (e) {
+            debugPrint("Failed to load document ${doc.title}: $e");
           }
         }
       } else {
-        if (await dir.exists()) {
-          await for (final entity
-              in dir.list(recursive: false, followLinks: false)) {
-            if (entity is File) {
-              final path = entity.path.toLowerCase();
-              if (path.endsWith('.pdf') ||
-                  path.endsWith('.jpg') ||
-                  path.endsWith('.jpeg') ||
-                  path.endsWith('.png')) {
-                if (_searchQuery.trim().isNotEmpty) {
-                  final fileName = p.basename(entity.path).toLowerCase();
-                  if (fileName.contains(_searchQuery.toLowerCase())) {
-                    filesList.add(entity);
-                  }
-                } else {
+        // No search query, use file system scan
+        String? activeFolderName;
+        if (_selectedFolderId != null && _folders.isNotEmpty) {
+          final folderIndex =
+              _folders.indexWhere((f) => f.id == _selectedFolderId);
+          if (folderIndex != -1) {
+            activeFolderName = _folders[folderIndex].name;
+          }
+        }
+
+        final dir =
+            await StorageService.getPublicDirectory(folderName: activeFolderName);
+        List<File> filesList = [];
+
+        if (_selectedFolderId == null) {
+          final rootDir = await StorageService.getPublicDirectory();
+          if (await rootDir.exists()) {
+            await for (final entity
+                in rootDir.list(recursive: true, followLinks: false)) {
+              if (entity is File) {
+                final path = entity.path.toLowerCase();
+                if (path.endsWith('.pdf') ||
+                    path.endsWith('.jpg') ||
+                    path.endsWith('.jpeg') ||
+                    path.endsWith('.png')) {
+                  filesList.add(entity);
+                }
+              }
+            }
+          }
+        } else {
+          if (await dir.exists()) {
+            await for (final entity
+                in dir.list(recursive: false, followLinks: false)) {
+              if (entity is File) {
+                final path = entity.path.toLowerCase();
+                if (path.endsWith('.pdf') ||
+                    path.endsWith('.jpg') ||
+                    path.endsWith('.jpeg') ||
+                    path.endsWith('.png')) {
                   filesList.add(entity);
                 }
               }
             }
           }
         }
-      }
 
-      final List<LocalFileItem> items = [];
-      for (var file in filesList) {
-        try {
-          final length = await file.length();
-          final modifiedTime = await file.lastModified();
-          final fileName = p.basename(file.path);
-          final isPdf = fileName.toLowerCase().endsWith('.pdf');
-          final displayTitle = _cleanDisplayTitle(fileName);
-          final fileSizeText = CompressionService.formatBytes(length);
-          final formattedDate =
-              "${modifiedTime.year}-${modifiedTime.month.toString().padLeft(2, '0')}-${modifiedTime.day.toString().padLeft(2, '0')} ${modifiedTime.hour.toString().padLeft(2, '0')}:${modifiedTime.minute.toString().padLeft(2, '0')}";
+        for (var file in filesList) {
+          try {
+            final length = await file.length();
+            final modifiedTime = await file.lastModified();
+            final fileName = p.basename(file.path);
+            final isPdf = fileName.toLowerCase().endsWith('.pdf');
+            final displayTitle = _cleanDisplayTitle(fileName);
+            final fileSizeText = CompressionService.formatBytes(length);
+            final formattedDate =
+                "${modifiedTime.year}-${modifiedTime.month.toString().padLeft(2, '0')}-${modifiedTime.day.toString().padLeft(2, '0')} ${modifiedTime.hour.toString().padLeft(2, '0')}:${modifiedTime.minute.toString().padLeft(2, '0')}";
 
-          items.add(LocalFileItem(
-            file: file,
-            name: fileName,
-            displayTitle: displayTitle,
-            fileSizeText: fileSizeText,
-            modifiedTime: modifiedTime,
-            formattedDate: formattedDate,
-            isPdf: isPdf,
-          ));
-        } catch (e) {
-          debugPrint("Failed to load details for file ${file.path}: $e");
+            items.add(LocalFileItem(
+              file: file,
+              name: fileName,
+              displayTitle: displayTitle,
+              fileSizeText: fileSizeText,
+              modifiedTime: modifiedTime,
+              formattedDate: formattedDate,
+              isPdf: isPdf,
+            ));
+          } catch (e) {
+            debugPrint("Failed to load details for file ${file.path}: $e");
+          }
         }
       }
 
@@ -177,7 +284,7 @@ class _HomeScreenState extends State<HomeScreen> {
         });
       }
     } catch (e) {
-      debugPrint("Error loading physical files: $e");
+      debugPrint("Error loading local files: $e");
     }
   }
 
@@ -435,6 +542,7 @@ class _HomeScreenState extends State<HomeScreen> {
     _bannerAd?.dispose();
     _searchDebounce?.cancel();
     _searchFocusNode.dispose();
+    _searchController.dispose();
     super.dispose();
   }
 
@@ -479,12 +587,20 @@ class _HomeScreenState extends State<HomeScreen> {
                           ),
                           const SizedBox(height: 12),
                           TextField(
+                            controller: _searchController,
                             focusNode: _searchFocusNode,
                             onChanged: _onSearchChanged,
                             decoration: InputDecoration(
-                              hintText: "Search documents or text inside...",
+                              hintText: "Search documents or OCR text...",
                               prefixIcon: const Icon(Icons.search,
                                   color: Color(0xFF00A86B)),
+                              suffixIcon: _searchController.text.isNotEmpty
+                                  ? IconButton(
+                                      icon: const Icon(Icons.cancel,
+                                          color: Colors.grey),
+                                      onPressed: _clearSearch,
+                                    )
+                                  : null,
                               filled: true,
                               fillColor: Colors.white,
                               contentPadding: EdgeInsets.zero,
@@ -540,17 +656,39 @@ class _HomeScreenState extends State<HomeScreen> {
                               child: Column(
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
-                                  Icon(Icons.folder_open_outlined,
-                                      size: 70, color: Colors.grey.shade400),
+                                  Icon(
+                                    _searchQuery.trim().isNotEmpty
+                                        ? Icons.search_off_outlined
+                                        : Icons.folder_open_outlined,
+                                    size: 70,
+                                    color: Colors.grey.shade400,
+                                  ),
                                   const SizedBox(height: 16),
                                   Text(
-                                    "No saved files found.\nTap Scan or ID Card and export to save files!",
+                                    _searchQuery.trim().isNotEmpty
+                                        ? "No results found for \"$_searchQuery\"\nTry checking your spelling or using different keywords."
+                                        : "No saved files found.\nTap Scan or ID Card and export to save files!",
                                     textAlign: TextAlign.center,
                                     style: TextStyle(
                                         color: Colors.grey.shade600,
                                         fontSize: 16,
                                         height: 1.4),
                                   ),
+                                  if (_searchQuery.trim().isNotEmpty) ...[
+                                    const SizedBox(height: 16),
+                                    ElevatedButton.icon(
+                                      onPressed: _clearSearch,
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: const Color(0xFF00A86B),
+                                        foregroundColor: Colors.white,
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(8),
+                                        ),
+                                      ),
+                                      icon: const Icon(Icons.clear, size: 18),
+                                      label: const Text("Clear Search"),
+                                    ),
+                                  ],
                                 ],
                               ),
                             )
@@ -606,49 +744,81 @@ class _HomeScreenState extends State<HomeScreen> {
                                       ),
                                     ),
                                     // FIXED: Wrapped the text fields inside an Expanded to perfectly calculate constraints inside the ListTile Row
-                                    title: Text(
+                                    title: _highlightedText(
                                       item.displayTitle,
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: const TextStyle(
+                                      item.highlightQuery,
+                                      baseStyle: const TextStyle(
                                         fontWeight: FontWeight.bold,
                                         fontSize: 14,
+                                        color: Color(0xFF0F172A),
+                                      ),
+                                      highlightStyle: const TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 14,
+                                        backgroundColor: Color(0xFFFDE047),
                                         color: Color(0xFF0F172A),
                                       ),
                                     ),
                                     subtitle: Padding(
                                       padding: const EdgeInsets.only(top: 4.0),
                                       // FIXED: Handled metadata alignment using a flexible setup inside the Row layer
-                                      child: Row(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
                                         children: [
-                                          Text(
-                                            fileSizeText,
-                                            style: TextStyle(
-                                                fontSize: 11,
-                                                color: Colors.grey.shade600,
-                                                fontWeight: FontWeight.w500),
-                                          ),
-                                          if (fileSizeText.isNotEmpty &&
-                                              formattedDate.isNotEmpty)
-                                            Container(
-                                              margin:
-                                                  const EdgeInsets.symmetric(
-                                                      horizontal: 6),
-                                              width: 3,
-                                              height: 3,
-                                              decoration: BoxDecoration(
-                                                  shape: BoxShape.circle,
-                                                  color: Colors.grey.shade400),
+                                          if (item.extractedTextSnippet != null &&
+                                              item.extractedTextSnippet!.isNotEmpty) ...[
+                                            Padding(
+                                              padding: const EdgeInsets.only(bottom: 4.0),
+                                              child: _highlightedText(
+                                                item.extractedTextSnippet!,
+                                                item.highlightQuery,
+                                                baseStyle: TextStyle(
+                                                  fontSize: 12,
+                                                  color: Colors.grey.shade600,
+                                                  fontStyle: FontStyle.italic,
+                                                ),
+                                                highlightStyle: const TextStyle(
+                                                  fontSize: 12,
+                                                  backgroundColor: Color(0xFFFDE047),
+                                                  color: Color(0xFF0F172A),
+                                                  fontWeight: FontWeight.bold,
+                                                  fontStyle: FontStyle.italic,
+                                                ),
+                                              ),
                                             ),
-                                          Expanded(
-                                            child: Text(
-                                              formattedDate,
-                                              maxLines: 1,
-                                              overflow: TextOverflow.ellipsis,
-                                              style: TextStyle(
-                                                  fontSize: 11,
-                                                  color: Colors.grey.shade600),
-                                            ),
+                                          ],
+                                          Row(
+                                            children: [
+                                              Text(
+                                                fileSizeText,
+                                                style: TextStyle(
+                                                    fontSize: 11,
+                                                    color: Colors.grey.shade600,
+                                                    fontWeight: FontWeight.w500),
+                                              ),
+                                              if (fileSizeText.isNotEmpty &&
+                                                  formattedDate.isNotEmpty)
+                                                Container(
+                                                  margin:
+                                                      const EdgeInsets.symmetric(
+                                                          horizontal: 6),
+                                                  width: 3,
+                                                  height: 3,
+                                                  decoration: BoxDecoration(
+                                                      shape: BoxShape.circle,
+                                                      color: Colors.grey.shade400),
+                                                ),
+                                              Expanded(
+                                                child: Text(
+                                                  formattedDate,
+                                                  maxLines: 1,
+                                                  overflow: TextOverflow.ellipsis,
+                                                  style: TextStyle(
+                                                      fontSize: 11,
+                                                      color: Colors.grey.shade600),
+                                                ),
+                                              ),
+                                            ],
                                           ),
                                         ],
                                       ),
@@ -891,6 +1061,8 @@ class LocalFileItem {
   final DateTime modifiedTime;
   final String formattedDate;
   final bool isPdf;
+  final String? highlightQuery;
+  final String? extractedTextSnippet;
 
   LocalFileItem({
     required this.file,
@@ -900,5 +1072,7 @@ class LocalFileItem {
     required this.modifiedTime,
     required this.formattedDate,
     required this.isPdf,
+    this.highlightQuery,
+    this.extractedTextSnippet,
   });
 }

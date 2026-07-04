@@ -49,6 +49,9 @@ class DatabaseHelper {
       )
     ''');
 
+    // Create indexes for fast searching
+    await _ensureIndexes(db);
+
     // Seed default folders as requested (Personal, Work, Receipts)
     final now = DateTime.now().millisecondsSinceEpoch;
     await db.insert('folders', {'name': 'Personal', 'colorHex': '#00A86B', 'createdAt': now});
@@ -56,6 +59,18 @@ class DatabaseHelper {
     await db.insert('folders', {'name': 'Receipts', 'colorHex': '#FFB703', 'createdAt': now});
   }
 
+
+  Future<void> _ensureIndexes(Database db) async {
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_documents_title ON documents(title)',
+    );
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_documents_extracted_text ON documents(extractedText)',
+    );
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_documents_created_at ON documents(createdAt)',
+    );
+  }
   // Folders CRUD
   Future<int> insertFolder(FolderModel folder) async {
     final db = await instance.database;
@@ -112,6 +127,35 @@ class DatabaseHelper {
     return result.map((json) => DocumentModel.fromMap(json)).toList();
   }
 
+
+  Future<List<DocumentModel>> searchDocuments({
+    required String query,
+    int? folderId,
+    int limit = 50,
+  }) async {
+    final cleanQuery = query.trim();
+    if (cleanQuery.isEmpty) return [];
+
+    final db = await instance.database;
+    final likeQuery = '%$cleanQuery%';
+    final whereParts = <String>['(title LIKE ? OR extractedText LIKE ?)'];
+    final whereArgs = <Object?>[likeQuery, likeQuery];
+
+    if (folderId != null) {
+      whereParts.add('folderId = ?');
+      whereArgs.add(folderId);
+    }
+
+    final result = await db.query(
+      'documents',
+      where: whereParts.join(' AND '),
+      whereArgs: whereArgs,
+      orderBy: 'createdAt DESC',
+      limit: limit,
+    );
+
+    return result.map((json) => DocumentModel.fromMap(json)).toList();
+  }
   Future<int> deleteDocument(int id) async {
     final db = await instance.database;
     return await db.delete(
