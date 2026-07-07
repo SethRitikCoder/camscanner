@@ -20,8 +20,10 @@ class IdCardCameraScreen extends StatelessWidget {
 class _IdCardCameraScreenContent extends StatelessWidget {
   const _IdCardCameraScreenContent();
 
-  void _openAdjustEdgesScreen(BuildContext context, CameraNotifier notifier) async {
-    if (notifier.currentRawImagePath == null || notifier.currentCropPoints == null) return;
+  void _openAdjustEdgesScreen(
+      BuildContext context, CameraNotifier notifier) async {
+    if (notifier.currentRawImagePath == null ||
+        notifier.currentCropPoints == null) return;
 
     final result = await Navigator.push<List<Offset>>(
       context,
@@ -38,7 +40,8 @@ class _IdCardCameraScreenContent extends StatelessWidget {
     }
   }
 
-  Future<void> _confirmCroppedPhoto(BuildContext context, CameraNotifier notifier) async {
+  Future<void> _confirmCroppedPhoto(
+      BuildContext context, CameraNotifier notifier) async {
     final mergedPath = await notifier.confirmCroppedPhoto();
     if (mergedPath != null && context.mounted) {
       Navigator.pop(context, mergedPath);
@@ -78,7 +81,8 @@ class _IdCardCameraScreenContent extends StatelessWidget {
             children: [
               // 1. Camera Preview or Error Placeholder
               Positioned.fill(
-                child: (notifier.controller != null && notifier.controller!.value.isInitialized)
+                child: (notifier.controller != null &&
+                        notifier.controller!.value.isInitialized)
                     ? AspectRatio(
                         aspectRatio: notifier.controller!.value.aspectRatio,
                         child: CameraPreview(notifier.controller!),
@@ -89,32 +93,43 @@ class _IdCardCameraScreenContent extends StatelessWidget {
                           child: Column(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              const Icon(Icons.camera_alt_outlined, color: Colors.white24, size: 64),
+                              const Icon(Icons.camera_alt_outlined,
+                                  color: Colors.white24, size: 64),
                               const SizedBox(height: 12),
                               Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 32),
+                                padding:
+                                    const EdgeInsets.symmetric(horizontal: 32),
                                 child: Text(
-                                  _getReadableErrorMessage(notifier.errorMessage),
+                                  _getReadableErrorMessage(
+                                      notifier.errorMessage),
                                   textAlign: TextAlign.center,
-                                  style: const TextStyle(color: Colors.white54, fontSize: 14, height: 1.4),
+                                  style: const TextStyle(
+                                      color: Colors.white54,
+                                      fontSize: 14,
+                                      height: 1.4),
                                 ),
                               ),
                               if (notifier.errorMessage != null &&
-                                  (notifier.errorMessage!.contains("permission") ||
-                                      notifier.errorMessage!.contains("denied"))) ...[
+                                  (notifier.errorMessage!
+                                          .contains("permission") ||
+                                      notifier.errorMessage!
+                                          .contains("denied"))) ...[
                                 const SizedBox(height: 20),
                                 ElevatedButton.icon(
-                                  onPressed: () => notifier.requestPermissionAndInit(),
+                                  onPressed: () =>
+                                      notifier.requestPermissionAndInit(),
                                   style: ElevatedButton.styleFrom(
                                     backgroundColor: const Color(0xFF00A86B),
                                     foregroundColor: Colors.white,
-                                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 24, vertical: 12),
                                     shape: RoundedRectangleBorder(
                                       borderRadius: BorderRadius.circular(30),
                                     ),
                                   ),
                                   icon: const Icon(Icons.security, size: 18),
-                                  label: Text(notifier.errorMessage == "permission_permanently_denied"
+                                  label: Text(notifier.errorMessage ==
+                                          "permission_permanently_denied"
                                       ? "Open App Settings"
                                       : "Grant Permission"),
                                 ),
@@ -126,7 +141,8 @@ class _IdCardCameraScreenContent extends StatelessWidget {
               ),
 
               // 2. Confirmation Screen Overlay
-              if (notifier.isConfirming && notifier.currentCroppedImagePath != null)
+              if (notifier.isConfirming &&
+                  notifier.currentCroppedImagePath != null)
                 Positioned.fill(
                   child: Container(
                     color: Colors.black,
@@ -134,7 +150,8 @@ class _IdCardCameraScreenContent extends StatelessWidget {
                       child: Column(
                         children: [
                           Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 20),
+                            padding: const EdgeInsets.symmetric(
+                                vertical: 24, horizontal: 20),
                             child: Text(
                               notifier.currentStep == 1
                                   ? "📸 CONFIRM FRONT SIDE"
@@ -148,23 +165,25 @@ class _IdCardCameraScreenContent extends StatelessWidget {
                               ),
                             ),
                           ),
-                          
                           Expanded(
                             child: Center(
                               child: Container(
-                                margin: const EdgeInsets.symmetric(horizontal: 24),
+                                margin:
+                                    const EdgeInsets.symmetric(horizontal: 24),
                                 decoration: BoxDecoration(
                                   color: const Color(0xFF1E293B),
                                   borderRadius: BorderRadius.circular(16),
                                   boxShadow: [
                                     BoxShadow(
-                                      color: Colors.black.withValues(alpha: 0.5),
+                                      color:
+                                          Colors.black.withValues(alpha: 0.5),
                                       blurRadius: 20,
                                       spreadRadius: 2,
                                     ),
                                   ],
                                   border: Border.all(
-                                    color: const Color(0xFF00A86B).withValues(alpha: 0.5),
+                                    color: const Color(0xFF00A86B)
+                                        .withValues(alpha: 0.5),
                                     width: 2,
                                   ),
                                 ),
@@ -175,16 +194,17 @@ class _IdCardCameraScreenContent extends StatelessWidget {
                                     child: Image.file(
                                       File(notifier.currentCroppedImagePath!),
                                       fit: BoxFit.cover,
-                                      key: ValueKey(notifier.currentCroppedImagePath),
+                                      key: ValueKey(
+                                          notifier.currentCroppedImagePath),
                                     ),
                                   ),
                                 ),
                               ),
                             ),
                           ),
-
                           const Padding(
-                            padding: EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                            padding: EdgeInsets.symmetric(
+                                horizontal: 24, vertical: 16),
                             child: Text(
                               "Verify the cropped region. Tap 'Adjust Edges' to tweak the crop nodes manually.",
                               textAlign: TextAlign.center,
@@ -195,7 +215,6 @@ class _IdCardCameraScreenContent extends StatelessWidget {
                               ),
                             ),
                           ),
-
                           Container(
                             padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
                             child: Row(
@@ -205,44 +224,67 @@ class _IdCardCameraScreenContent extends StatelessWidget {
                                   child: OutlinedButton.icon(
                                     onPressed: () => notifier.retakePhoto(),
                                     icon: const Icon(Icons.refresh, size: 18),
-                                    label: const Text("Retake", style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                                    label: const Text("Retake",
+                                        style: TextStyle(
+                                            fontSize: 13,
+                                            fontWeight: FontWeight.bold)),
                                     style: OutlinedButton.styleFrom(
                                       foregroundColor: Colors.white,
-                                      side: const BorderSide(color: Colors.white38),
-                                      padding: const EdgeInsets.symmetric(vertical: 14),
-                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+                                      side: const BorderSide(
+                                          color: Colors.white38),
+                                      padding: const EdgeInsets.symmetric(
+                                          vertical: 14),
+                                      shape: RoundedRectangleBorder(
+                                          borderRadius:
+                                              BorderRadius.circular(30)),
                                     ),
                                   ),
                                 ),
                                 const SizedBox(width: 8),
                                 Expanded(
                                   child: ElevatedButton.icon(
-                                    onPressed: () => _openAdjustEdgesScreen(context, notifier),
+                                    onPressed: () => _openAdjustEdgesScreen(
+                                        context, notifier),
                                     icon: const Icon(Icons.crop_free, size: 18),
-                                    label: const Text("Adjust Edges", style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                                    label: const Text("Adjust",
+                                        style: TextStyle(
+                                            fontSize: 13,
+                                            fontWeight: FontWeight.bold)),
                                     style: ElevatedButton.styleFrom(
                                       backgroundColor: const Color(0xFF1E293B),
                                       foregroundColor: Colors.white,
-                                      side: const BorderSide(color: Color(0xFF00A86B), width: 1.5),
-                                      padding: const EdgeInsets.symmetric(vertical: 14),
-                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+                                      side: const BorderSide(
+                                          color: Color(0xFF00A86B), width: 1.5),
+                                      padding: const EdgeInsets.symmetric(
+                                          vertical: 14, horizontal: 4.0),
+                                      shape: RoundedRectangleBorder(
+                                          borderRadius:
+                                              BorderRadius.circular(30)),
                                     ),
                                   ),
                                 ),
                                 const SizedBox(width: 8),
                                 Expanded(
                                   child: ElevatedButton.icon(
-                                    onPressed: () => _confirmCroppedPhoto(context, notifier),
+                                    onPressed: () =>
+                                        _confirmCroppedPhoto(context, notifier),
                                     icon: const Icon(Icons.check, size: 18),
                                     label: Text(
-                                      notifier.currentStep == 1 ? "Next" : "Done",
-                                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+                                      notifier.currentStep == 1
+                                          ? "Next"
+                                          : "Done",
+                                      style: const TextStyle(
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.bold),
                                     ),
                                     style: ElevatedButton.styleFrom(
                                       backgroundColor: const Color(0xFF00A86B),
                                       foregroundColor: Colors.white,
-                                      padding: const EdgeInsets.symmetric(vertical: 14),
-                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+                                      padding: const EdgeInsets.symmetric(
+                                          vertical: 14),
+                                      shape: RoundedRectangleBorder(
+                                          borderRadius:
+                                              BorderRadius.circular(30)),
                                     ),
                                   ),
                                 ),
@@ -259,7 +301,8 @@ class _IdCardCameraScreenContent extends StatelessWidget {
               if (!notifier.isConfirming)
                 Positioned.fill(
                   child: CustomPaint(
-                    painter: CardOverlayPainter(isFrontCaptured: notifier.isFrontCaptured),
+                    painter: CardOverlayPainter(
+                        isFrontCaptured: notifier.isFrontCaptured),
                   ),
                 ),
 
@@ -268,7 +311,8 @@ class _IdCardCameraScreenContent extends StatelessWidget {
                 Center(
                   child: Container(
                     margin: EdgeInsets.only(top: cardHeight + 40),
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                     decoration: BoxDecoration(
                       color: Colors.black54,
                       borderRadius: BorderRadius.circular(8),
@@ -290,12 +334,16 @@ class _IdCardCameraScreenContent extends StatelessWidget {
                   left: 20,
                   right: 20,
                   child: Container(
-                    padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 20),
+                    padding: const EdgeInsets.symmetric(
+                        vertical: 14, horizontal: 20),
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
                         colors: notifier.currentStep == 1
-                            ? [const Color(0xFFD97706), const Color(0xFFF59E0B)]
-                            : [const Color(0xFF047857), const Color(0xFF10B981)],
+                            ? [const Color(0xFF047857), const Color(0xFF10B981)]
+                            : [
+                                const Color(0xFF047857),
+                                const Color(0xFF10B981)
+                              ],
                       ),
                       borderRadius: BorderRadius.circular(30),
                       boxShadow: [
@@ -310,7 +358,9 @@ class _IdCardCameraScreenContent extends StatelessWidget {
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Icon(
-                          notifier.currentStep == 1 ? Icons.camera_alt : Icons.flip_camera_android,
+                          notifier.currentStep == 1
+                              ? Icons.camera_alt
+                              : Icons.flip_camera_android,
                           color: Colors.white,
                           size: 20,
                         ),
@@ -339,7 +389,8 @@ class _IdCardCameraScreenContent extends StatelessWidget {
                   top: 30 + MediaQuery.of(context).padding.top,
                   right: 24,
                   child: IconButton(
-                    icon: const Icon(Icons.close, color: Colors.white, size: 28),
+                    icon:
+                        const Icon(Icons.close, color: Colors.white, size: 28),
                     onPressed: () => Navigator.pop(context),
                   ),
                 ),
@@ -349,67 +400,70 @@ class _IdCardCameraScreenContent extends StatelessWidget {
                   bottom: 0,
                   left: 0,
                   right: 0,
-                  child: Container(
-                    decoration: const BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [Colors.transparent, Colors.black87],
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
+                  child: SafeArea(
+                    child: Container(
+                      decoration: const BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [Colors.transparent, Colors.black87],
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                        ),
                       ),
-                    ),
-                    padding: const EdgeInsets.fromLTRB(24, 20, 24, 40),
-                    child: Row(
-                      children: [
-                        // Gallery Button
-                        Expanded(
-                          child: Align(
-                            alignment: Alignment.centerLeft,
-                            child: Material(
-                              color: Colors.transparent,
-                              child: InkWell(
-                                onTap: () => notifier.pickFromGallery(),
-                                borderRadius: BorderRadius.circular(30),
-                                child: Ink(
-                                  padding: const EdgeInsets.all(12),
-                                  decoration: const BoxDecoration(
-                                    shape: BoxShape.circle,
-                                    color: Colors.white24,
-                                  ),
-                                  child: const Icon(
-                                    Icons.photo_library_outlined,
-                                    color: Colors.white,
-                                    size: 28,
+                      padding: const EdgeInsets.fromLTRB(24, 20, 24, 40),
+                      child: Row(
+                        children: [
+                          // Gallery Button
+                          Expanded(
+                            child: Align(
+                              alignment: Alignment.centerLeft,
+                              child: Material(
+                                color: Colors.transparent,
+                                child: InkWell(
+                                  onTap: () => notifier.pickFromGallery(),
+                                  borderRadius: BorderRadius.circular(30),
+                                  child: Ink(
+                                    padding: const EdgeInsets.all(12),
+                                    decoration: const BoxDecoration(
+                                      shape: BoxShape.circle,
+                                      color: Colors.white24,
+                                    ),
+                                    child: const Icon(
+                                      Icons.photo_library_outlined,
+                                      color: Colors.white,
+                                      size: 28,
+                                    ),
                                   ),
                                 ),
                               ),
                             ),
                           ),
-                        ),
 
-                        // Shutter Button
-                        GestureDetector(
-                          onTap: () => notifier.captureImage(),
-                          child: Container(
-                            height: 76,
-                            width: 76,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              border: Border.all(color: Colors.white, width: 4),
-                            ),
+                          // Shutter Button
+                          GestureDetector(
+                            onTap: () => notifier.captureImage(),
                             child: Container(
-                              margin: const EdgeInsets.all(4),
-                              decoration: const BoxDecoration(
+                              height: 76,
+                              width: 76,
+                              decoration: BoxDecoration(
                                 shape: BoxShape.circle,
-                                color: Colors.white,
+                                border:
+                                    Border.all(color: Colors.white, width: 4),
+                              ),
+                              child: Container(
+                                margin: const EdgeInsets.all(4),
+                                decoration: const BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  color: Colors.white,
+                                ),
                               ),
                             ),
                           ),
-                        ),
 
-                        const Expanded(
-                          child: SizedBox(),
-                        ),
-                      ],
+                          const Expanded(
+                            child: SizedBox(),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ),
@@ -446,11 +500,13 @@ class _IdCardCameraScreenContent extends StatelessWidget {
                     child: Center(
                       child: Container(
                         margin: const EdgeInsets.symmetric(horizontal: 40),
-                        padding: const EdgeInsets.symmetric(vertical: 32, horizontal: 24),
+                        padding: const EdgeInsets.symmetric(
+                            vertical: 32, horizontal: 24),
                         decoration: BoxDecoration(
                           color: const Color(0xFF1E293B),
                           borderRadius: BorderRadius.circular(24),
-                          border: Border.all(color: const Color(0xFF00A86B), width: 1.5),
+                          border: Border.all(
+                              color: const Color(0xFF00A86B), width: 1.5),
                         ),
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
@@ -462,10 +518,10 @@ class _IdCardCameraScreenContent extends StatelessWidget {
                                 color: Color(0xFF00A86B),
                               ),
                               child: const Icon(
-                                  Icons.check,
-                                  size: 48,
-                                  color: Colors.white,
-                                ),
+                                Icons.check,
+                                size: 48,
+                                color: Colors.white,
+                              ),
                             ),
                             const SizedBox(height: 24),
                             const Text(
@@ -494,38 +550,40 @@ class _IdCardCameraScreenContent extends StatelessWidget {
 
 class CardOverlayPainter extends CustomPainter {
   final bool isFrontCaptured;
-  
+
   CardOverlayPainter({required this.isFrontCaptured});
-  
+
   @override
   void paint(Canvas canvas, Size size) {
     final cardWidth = size.width * 0.85;
     final cardHeight = cardWidth / 1.58;
     final left = (size.width - cardWidth) / 2;
     final top = (size.height - cardHeight) / 2;
-    
+
     final cardRect = RRect.fromRectAndRadius(
       Rect.fromLTWH(left, top, cardWidth, cardHeight),
       const Radius.circular(16),
     );
-    
+
     // 1. Draw semi-transparent background with hole
-    final backgroundPaint = Paint()..color = Colors.black.withValues(alpha: 0.65);
+    final backgroundPaint = Paint()
+      ..color = Colors.black.withValues(alpha: 0.65);
     final backgroundPath = Path()
       ..addRect(Rect.fromLTWH(0, 0, size.width, size.height))
       ..addRRect(cardRect)
       ..fillType = PathFillType.evenOdd;
     canvas.drawPath(backgroundPath, backgroundPaint);
-    
+
     // 2. Draw border shadow (glow effect)
-    final glowColor = isFrontCaptured ? const Color(0xFF00A86B) : const Color(0xFFFFB703);
+    final glowColor =
+        isFrontCaptured ? const Color(0xFF00A86B) : const Color(0xFF00A86B);
     final shadowPaint = Paint()
       ..color = glowColor.withValues(alpha: 0.35)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 6.0
       ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8);
     canvas.drawRRect(cardRect, shadowPaint);
-    
+
     // 3. Bounding box border
     final borderPaint = Paint()
       ..color = glowColor
@@ -533,13 +591,14 @@ class CardOverlayPainter extends CustomPainter {
       ..strokeWidth = 3.0;
     canvas.drawRRect(cardRect, borderPaint);
   }
-  
+
   @override
   bool shouldRepaint(covariant CardOverlayPainter oldDelegate) =>
       oldDelegate.isFrontCaptured != isFrontCaptured;
 }
 
-Size getDisplayImageSize(Size constraintSize, double imgWidth, double imgHeight) {
+Size getDisplayImageSize(
+    Size constraintSize, double imgWidth, double imgHeight) {
   double imgRatio = imgWidth / imgHeight;
   double constraintRatio = constraintSize.width / constraintSize.height;
 
@@ -640,8 +699,10 @@ class _AdjustEdgesScreenState extends State<AdjustEdgesScreen> {
           Expanded(
             child: LayoutBuilder(
               builder: (context, constraints) {
-                final containerSize = Size(constraints.maxWidth, constraints.maxHeight);
-                final displaySize = getDisplayImageSize(containerSize, _imgWidth, _imgHeight);
+                final containerSize =
+                    Size(constraints.maxWidth, constraints.maxHeight);
+                final displaySize =
+                    getDisplayImageSize(containerSize, _imgWidth, _imgHeight);
 
                 return Center(
                   child: Container(
@@ -670,8 +731,12 @@ class _AdjustEdgesScreenState extends State<AdjustEdgesScreen> {
                                 double minDistance = double.infinity;
                                 for (int i = 0; i < _points.length; i++) {
                                   final pDisplay = Offset(
-                                    _points[i].dx / _imgWidth * displaySize.width,
-                                    _points[i].dy / _imgHeight * displaySize.height,
+                                    _points[i].dx /
+                                        _imgWidth *
+                                        displaySize.width,
+                                    _points[i].dy /
+                                        _imgHeight *
+                                        displaySize.height,
                                   );
                                   final dist = (localPos - pDisplay).distance;
                                   if (dist < minDistance) {
@@ -689,14 +754,19 @@ class _AdjustEdgesScreenState extends State<AdjustEdgesScreen> {
                               onPanUpdate: (details) {
                                 if (_activeCornerIndex != -1) {
                                   final localPos = details.localPosition;
-                                  final clampedX = localPos.dx.clamp(0.0, displaySize.width);
-                                  final clampedY = localPos.dy.clamp(0.0, displaySize.height);
+                                  final clampedX =
+                                      localPos.dx.clamp(0.0, displaySize.width);
+                                  final clampedY = localPos.dy
+                                      .clamp(0.0, displaySize.height);
 
-                                  final rawX = (clampedX / displaySize.width) * _imgWidth;
-                                  final rawY = (clampedY / displaySize.height) * _imgHeight;
+                                  final rawX = (clampedX / displaySize.width) *
+                                      _imgWidth;
+                                  final rawY = (clampedY / displaySize.height) *
+                                      _imgHeight;
 
                                   setState(() {
-                                    _points[_activeCornerIndex] = Offset(rawX, rawY);
+                                    _points[_activeCornerIndex] =
+                                        Offset(rawX, rawY);
                                   });
                                 }
                               },
@@ -767,10 +837,14 @@ class CropOverlayPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     if (points.length < 4) return;
 
-    final p0 = Offset(points[0].dx / imgWidth * displaySize.width, points[0].dy / imgHeight * displaySize.height);
-    final p1 = Offset(points[1].dx / imgWidth * displaySize.width, points[1].dy / imgHeight * displaySize.height);
-    final p2 = Offset(points[2].dx / imgWidth * displaySize.width, points[2].dy / imgHeight * displaySize.height);
-    final p3 = Offset(points[3].dx / imgWidth * displaySize.width, points[3].dy / imgHeight * displaySize.height);
+    final p0 = Offset(points[0].dx / imgWidth * displaySize.width,
+        points[0].dy / imgHeight * displaySize.height);
+    final p1 = Offset(points[1].dx / imgWidth * displaySize.width,
+        points[1].dy / imgHeight * displaySize.height);
+    final p2 = Offset(points[2].dx / imgWidth * displaySize.width,
+        points[2].dy / imgHeight * displaySize.height);
+    final p3 = Offset(points[3].dx / imgWidth * displaySize.width,
+        points[3].dy / imgHeight * displaySize.height);
 
     // 1. Draw overlay with hole
     final overlayPath = Path()
@@ -781,7 +855,8 @@ class CropOverlayPainter extends CustomPainter {
       ..lineTo(p3.dx, p3.dy)
       ..close();
     overlayPath.fillType = PathFillType.evenOdd;
-    canvas.drawPath(overlayPath, Paint()..color = Colors.black.withValues(alpha: 0.6));
+    canvas.drawPath(
+        overlayPath, Paint()..color = Colors.black.withValues(alpha: 0.6));
 
     // 2. Draw connecting lines
     final linePaint = Paint()
