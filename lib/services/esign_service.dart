@@ -13,6 +13,7 @@ class ESignService {
     required Offset boxPosition,     // Premium: Dragged Position coordinate
     required Size boxSize,           // Premium: Resized Box Dimensions
     required Color inkColor,         // Premium: Blue or Black Ink selection
+    required double esignRotation,   // Rotation in radians
   }) async {
     final bytes = await sourceFile.readAsBytes();
     final ui.Codec codec = await ui.instantiateImageCodec(bytes);
@@ -32,11 +33,11 @@ class ESignService {
     final double globalScaleX = imgWidth / canvasDisplaySize.width;
     final double globalScaleY = imgHeight / canvasDisplaySize.height;
 
-    // Signature box ki position ko image pixels ke scale ke hisab se convert karna
+    // Signature box position in image pixels
     final double finalBoxX = boxPosition.dx * globalScaleX;
     final double finalBoxY = boxPosition.dy * globalScaleY;
     
-    // Resized Box ki width/height ko image pixels ke scale par fit karna
+    // Resized Box width/height in image pixels
     final double finalBoxWidth = boxSize.width * globalScaleX;
     final double finalBoxHeight = boxSize.height * globalScaleY;
 
@@ -44,7 +45,7 @@ class ESignService {
     const double basePadWidth = 300.0;
     const double basePadHeight = 150.0;
 
-    // Local scaling factor: Modal pad se responsive resize bounding box tak ki translation mapping
+    // Local scaling factor: Modal pad to responsive resize box mapping
     final double localScaleX = finalBoxWidth / basePadWidth;
     final double localScaleY = finalBoxHeight / basePadHeight;
 
@@ -54,24 +55,31 @@ class ESignService {
       ..strokeCap = StrokeCap.round
       ..strokeWidth = 3.5 * (finalBoxWidth / basePadWidth); // Adaptive line thickness
 
-    // 4. Matrix point mapping logic for burning inside bounded area
+    // 4. Transform canvas to draw rotated signature centered
+    canvas.save();
+    final double finalCenterX = finalBoxX + finalBoxWidth / 2;
+    final double finalCenterY = finalBoxY + finalBoxHeight / 2;
+    canvas.translate(finalCenterX, finalCenterY);
+    canvas.rotate(esignRotation);
+    canvas.translate(-finalBoxWidth / 2, -finalBoxHeight / 2);
+
+    // 5. Draw strokes in transformed coordinate space
     for (final stroke in strokes) {
       for (int i = 0; i < stroke.length - 1; i++) {
-        // Step A: Real canvas coordinate scaling inside the box
         final double p1LocalX = stroke[i].dx * localScaleX;
         final double p1LocalY = stroke[i].dy * localScaleY;
         final double p2LocalX = stroke[i + 1].dx * localScaleX;
         final double p2LocalY = stroke[i + 1].dy * localScaleY;
 
-        // Step B: Translate coordinates relative to the dragged position over document
-        final p1 = Offset(finalBoxX + p1LocalX, finalBoxY + p1LocalY);
-        final p2 = Offset(finalBoxX + p2LocalX, finalBoxY + p2LocalY);
+        final p1 = Offset(p1LocalX, p1LocalY);
+        final p2 = Offset(p2LocalX, p2LocalY);
 
         canvas.drawLine(p1, p2, strokePaint);
       }
     }
+    canvas.restore();
 
-    // 5. Compile and export high-res output file
+    // 6. Compile and export high-res output file
     final ui.Picture picture = recorder.endRecording();
     final ui.Image signedImage = await picture.toImage(image.width, image.height);
     final byteData = await signedImage.toByteData(format: ui.ImageByteFormat.png);

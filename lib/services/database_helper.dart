@@ -156,6 +156,30 @@ class DatabaseHelper {
 
     return result.map((json) => DocumentModel.fromMap(json)).toList();
   }
+  Future<void> updateDocumentPaths(String oldPath, String newPath, String newTitle) async {
+    final db = await instance.database;
+    
+    final docs = await db.query(
+      'documents',
+      where: 'pagePaths LIKE ? OR thumbnailPath = ?',
+      whereArgs: ['%$oldPath%', oldPath],
+    );
+
+    for (var docMap in docs) {
+      final doc = DocumentModel.fromMap(docMap);
+      final newPages = doc.pagePaths.map((p) => p == oldPath ? newPath : p).toList();
+      final newThumb = doc.thumbnailPath == oldPath ? newPath : doc.thumbnailPath;
+      
+      final updated = doc.copyWith(
+        title: newTitle,
+        pagePaths: newPages,
+        thumbnailPath: newThumb,
+      );
+      
+      await updateDocument(updated);
+    }
+  }
+
   Future<int> deleteDocument(int id) async {
     final db = await instance.database;
     return await db.delete(

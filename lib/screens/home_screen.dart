@@ -3,22 +3,18 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:google_mlkit_document_scanner/google_mlkit_document_scanner.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
+import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:printing/printing.dart';
 import 'package:pdf/pdf.dart';
 import 'package:path/path.dart' as p;
 import 'package:intl/intl.dart';
-import '../models/document_model.dart';
-import '../models/folder_model.dart';
 import '../services/ad_service.dart';
-import '../services/database_helper.dart';
-import '../services/ocr_service.dart';
-import '../services/storage_service.dart';
-import '../services/compression_service.dart';
 import '../widgets/folder_chip.dart';
 import 'export_preview_screen.dart';
 import 'id_card_camera_screen.dart';
 import 'tools_screen.dart';
+import 'home_notifier.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -29,10 +25,6 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   int _activeTab = 0;
-  List<FolderModel> _folders = [];
-  List<LocalFileItem> _localFiles = [];
-  int? _selectedFolderId;
-  String _searchQuery = "";
   BannerAd? _bannerAd;
   bool _isBannerLoaded = false;
   Timer? _searchDebounce;
@@ -42,7 +34,6 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
-    _loadData();
     _loadBannerAd();
   }
 
@@ -62,24 +53,21 @@ class _HomeScreenState extends State<HomeScreen> {
     )..load();
   }
 
-  void _onSearchChanged(String val) {
-    setState(() {}); // Immediately rebuild to show/hide the cancel/clear button
+  void _onSearchChanged(BuildContext context, String val) {
+    setState(() {}); // Rebuild to show/hide cancel/clear button immediately
     if (_searchDebounce?.isActive ?? false) _searchDebounce!.cancel();
-    _searchDebounce = Timer(const Duration(milliseconds: 300), () async {
-      setState(() {
-        _searchQuery = val;
-      });
-      await _loadData();
+    _searchDebounce = Timer(const Duration(milliseconds: 300), () {
+      if (context.mounted) {
+        context.read<HomeNotifier>().setSearchQuery(val);
+      }
     });
   }
 
-  void _clearSearch() {
+  void _clearSearch(BuildContext context) {
     _searchController.clear();
     if (_searchDebounce?.isActive ?? false) _searchDebounce!.cancel();
-    setState(() {
-      _searchQuery = "";
-    });
-    _loadData();
+    setState(() {}); // Rebuild to hide cancel/clear button immediately
+    context.read<HomeNotifier>().setSearchQuery("");
   }
 
   Widget _highlightedText(
@@ -123,169 +111,6 @@ class _HomeScreenState extends State<HomeScreen> {
       maxLines: 1,
       overflow: TextOverflow.ellipsis,
     );
-  }
-
-  Future<void> _loadData() async {
-    final folders = await DatabaseHelper.instance.getAllFolders();
-
-    if (mounted) {
-      setState(() {
-        _folders = folders;
-      });
-    }
-
-    await _loadLocalFiles();
-  }
-
-  String _extractSnippet(String text, String query, {int contextLength = 40}) {
-    if (text.isEmpty || query.isEmpty) return '';
-    
-    final lowerText = text.toLowerCase();
-    final lowerQuery = query.toLowerCase();
-    final index = lowerText.indexOf(lowerQuery);
-    
-    if (index == -1) return '';
-    
-    final start = (index - contextLength).clamp(0, text.length);
-    final end = (index + query.length + contextLength).clamp(0, text.length);
-    
-    String snippet = text.substring(start, end);
-    if (start > 0) snippet = '...$snippet';
-    if (end < text.length) snippet = '$snippet...';
-    
-    return snippet.replaceAll('\n', ' ').trim();
-  }
-
-  Future<void> _loadLocalFiles() async {
-    try {
-      final List<LocalFileItem> items = [];
-      
-      // If search query is active, use database search
-      if (_searchQuery.trim().isNotEmpty) {
-        final documents = await DatabaseHelper.instance.searchDocuments(
-          query: _searchQuery,
-          folderId: _selectedFolderId,
-          limit: 50,
-        );
-        
-        for (var doc in documents) {
-          try {
-            // Get first page path from the document
-            if (doc.pagePaths.isNotEmpty) {
-              final firstPagePath = doc.pagePaths[0];
-              final file = File(firstPagePath);
-              
-              if (await file.exists()) {
-                final length = await file.length();
-                final modifiedTime = await file.lastModified();
-                final isPdf = firstPagePath.toLowerCase().endsWith('.pdf');
-                final fileSizeText = CompressionService.formatBytes(length);
-                final formattedDate =
-                    "${modifiedTime.year}-${modifiedTime.month.toString().padLeft(2, '0')}-${modifiedTime.day.toString().padLeft(2, '0')} ${modifiedTime.hour.toString().padLeft(2, '0')}:${modifiedTime.minute.toString().padLeft(2, '0')}";
-
-                final snippet = _extractSnippet(doc.extractedText, _searchQuery);
-
-                items.add(LocalFileItem(
-                  file: file,
-                  name: doc.title,
-                  displayTitle: doc.title,
-                  fileSizeText: fileSizeText,
-                  modifiedTime: modifiedTime,
-                  formattedDate: formattedDate,
-                  isPdf: isPdf,
-                  highlightQuery: _searchQuery,
-                  extractedTextSnippet: snippet,
-                ));
-              }
-            }
-          } catch (e) {
-            debugPrint("Failed to load document ${doc.title}: $e");
-          }
-        }
-      } else {
-        // No search query, use file system scan
-        String? activeFolderName;
-        if (_selectedFolderId != null && _folders.isNotEmpty) {
-          final folderIndex =
-              _folders.indexWhere((f) => f.id == _selectedFolderId);
-          if (folderIndex != -1) {
-            activeFolderName = _folders[folderIndex].name;
-          }
-        }
-
-        final dir =
-            await StorageService.getPublicDirectory(folderName: activeFolderName);
-        List<File> filesList = [];
-
-        if (_selectedFolderId == null) {
-          final rootDir = await StorageService.getPublicDirectory();
-          if (await rootDir.exists()) {
-            await for (final entity
-                in rootDir.list(recursive: true, followLinks: false)) {
-              if (entity is File) {
-                final path = entity.path.toLowerCase();
-                if (path.endsWith('.pdf') ||
-                    path.endsWith('.jpg') ||
-                    path.endsWith('.jpeg') ||
-                    path.endsWith('.png')) {
-                  filesList.add(entity);
-                }
-              }
-            }
-          }
-        } else {
-          if (await dir.exists()) {
-            await for (final entity
-                in dir.list(recursive: false, followLinks: false)) {
-              if (entity is File) {
-                final path = entity.path.toLowerCase();
-                if (path.endsWith('.pdf') ||
-                    path.endsWith('.jpg') ||
-                    path.endsWith('.jpeg') ||
-                    path.endsWith('.png')) {
-                  filesList.add(entity);
-                }
-              }
-            }
-          }
-        }
-
-        for (var file in filesList) {
-          try {
-            final length = await file.length();
-            final modifiedTime = await file.lastModified();
-            final fileName = p.basename(file.path);
-            final isPdf = fileName.toLowerCase().endsWith('.pdf');
-            final displayTitle = _cleanDisplayTitle(fileName);
-            final fileSizeText = CompressionService.formatBytes(length);
-            final formattedDate =
-                "${modifiedTime.year}-${modifiedTime.month.toString().padLeft(2, '0')}-${modifiedTime.day.toString().padLeft(2, '0')} ${modifiedTime.hour.toString().padLeft(2, '0')}:${modifiedTime.minute.toString().padLeft(2, '0')}";
-
-            items.add(LocalFileItem(
-              file: file,
-              name: fileName,
-              displayTitle: displayTitle,
-              fileSizeText: fileSizeText,
-              modifiedTime: modifiedTime,
-              formattedDate: formattedDate,
-              isPdf: isPdf,
-            ));
-          } catch (e) {
-            debugPrint("Failed to load details for file ${file.path}: $e");
-          }
-        }
-      }
-
-      items.sort((a, b) => b.modifiedTime.compareTo(a.modifiedTime));
-
-      if (mounted) {
-        setState(() {
-          _localFiles = items;
-        });
-      }
-    } catch (e) {
-      debugPrint("Error loading local files: $e");
-    }
   }
 
   void _openPdfFile(File file) async {
@@ -338,28 +163,31 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  String _cleanDisplayTitle(String fileName) {
-    String nameWithoutExt = fileName.replaceAll(
-        RegExp(r'\.(pdf|jpg|jpeg|png)$', caseSensitive: false), '');
-
-    final match = RegExp(r'(\d{10,13})').firstMatch(nameWithoutExt);
-    if (match != null) {
-      final timestampStr = match.group(1)!;
-      final timestamp = int.tryParse(timestampStr);
-      if (timestamp != null) {
-        final date = DateTime.fromMillisecondsSinceEpoch(timestamp);
-        final formattedDate = DateFormat('MM-dd-yyyy HH:mm').format(date);
-        return "DocScanner $formattedDate";
-      }
-    }
-
-    String title = nameWithoutExt.replaceAll(RegExp(r'_page_\d+'), '');
-    title = title.replaceAll(RegExp(r'_\d{10,}$'), '');
-    title = title.replaceAll('_', ' ');
-    return title.trim();
+  void _showLoadingDialog(BuildContext context, String message) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => PopScope(
+        canPop: false,
+        child: AlertDialog(
+          content: Row(
+            children: [
+              const CircularProgressIndicator(color: Color(0xFF00A86B)),
+              const SizedBox(width: 20),
+              Expanded(
+                child: Text(
+                  message,
+                  style: const TextStyle(fontWeight: FontWeight.w500),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
-  Future<void> _startScan() async {
+  Future<void> _startScan(BuildContext context, HomeNotifier notifier) async {
     try {
       final documentScanner = DocumentScanner(
         options: DocumentScannerOptions(
@@ -376,35 +204,20 @@ class _HomeScreenState extends State<HomeScreen> {
         final title =
             "DocScanner ${DateFormat('MM-dd-yyyy HH:mm').format(DateTime.now())}";
 
-        final newDoc = DocumentModel(
-          folderId: _selectedFolderId,
-          title: title,
-          pagePaths: imagePaths,
-          thumbnailPath: imagePaths.first,
-          createdAt: DateTime.now().millisecondsSinceEpoch,
-        );
-
-        final docId = await DatabaseHelper.instance.insertDocument(newDoc);
-        _loadData();
-
-        OcrService.extractTextFromImages(imagePaths)
-            .then((extractedText) async {
-          if (extractedText.isNotEmpty) {
-            final updatedDoc =
-                newDoc.copyWith(id: docId, extractedText: extractedText);
-            await DatabaseHelper.instance.updateDocument(updatedDoc);
-            _loadData();
-          }
-        });
-
-        String? activeFolderName;
-        if (_selectedFolderId != null && _folders.isNotEmpty) {
-          final idx = _folders.indexWhere((f) => f.id == _selectedFolderId);
-          if (idx != -1) activeFolderName = _folders[idx].name;
+        if (context.mounted) {
+          _showLoadingDialog(context, "Saving document...");
         }
 
-        if (mounted) {
-          Navigator.push(
+        await notifier.addDocument(
+          pagePaths: imagePaths,
+          title: title,
+        );
+
+        final activeFolderName = notifier.getActiveFolderName();
+
+        if (context.mounted) {
+          Navigator.pop(context); // Pop loading dialog
+          await Navigator.push(
             context,
             MaterialPageRoute(
               builder: (_) => ExportPreviewScreen(
@@ -413,7 +226,8 @@ class _HomeScreenState extends State<HomeScreen> {
                 folderName: activeFolderName,
               ),
             ),
-          ).then((_) => _loadData());
+          );
+          notifier.loadData();
         }
       }
     } catch (e) {
@@ -422,7 +236,7 @@ class _HomeScreenState extends State<HomeScreen> {
           errorStr.contains('operation cancelled')) {
         return;
       }
-      if (mounted) {
+      if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
               content: Text('Something went wrong. Please try again.')),
@@ -431,7 +245,7 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  Future<void> _startIdCardScan() async {
+  Future<void> _startIdCardScan(BuildContext context, HomeNotifier notifier) async {
     try {
       final String? mergedFilePath = await Navigator.push(
         context,
@@ -444,34 +258,20 @@ class _HomeScreenState extends State<HomeScreen> {
           "DocScanner ${DateFormat('MM-dd-yyyy HH:mm').format(DateTime.now())}";
       final imagePaths = [mergedFilePath];
 
-      final newDoc = DocumentModel(
-        folderId: _selectedFolderId,
-        title: title,
-        pagePaths: imagePaths,
-        thumbnailPath: imagePaths.first,
-        createdAt: DateTime.now().millisecondsSinceEpoch,
-      );
-
-      final docId = await DatabaseHelper.instance.insertDocument(newDoc);
-      _loadData();
-
-      OcrService.extractTextFromImages(imagePaths).then((extractedText) async {
-        if (extractedText.isNotEmpty) {
-          final updatedDoc =
-              newDoc.copyWith(id: docId, extractedText: extractedText);
-          await DatabaseHelper.instance.updateDocument(updatedDoc);
-          _loadData();
-        }
-      });
-
-      String? activeFolderName;
-      if (_selectedFolderId != null && _folders.isNotEmpty) {
-        final idx = _folders.indexWhere((f) => f.id == _selectedFolderId);
-        if (idx != -1) activeFolderName = _folders[idx].name;
+      if (context.mounted) {
+        _showLoadingDialog(context, "Saving document...");
       }
 
-      if (mounted) {
-        Navigator.push(
+      await notifier.addDocument(
+        pagePaths: imagePaths,
+        title: title,
+      );
+
+      final activeFolderName = notifier.getActiveFolderName();
+
+      if (context.mounted) {
+        Navigator.pop(context); // Pop loading dialog
+        await Navigator.push(
           context,
           MaterialPageRoute(
             builder: (_) => ExportPreviewScreen(
@@ -480,7 +280,8 @@ class _HomeScreenState extends State<HomeScreen> {
               folderName: activeFolderName,
             ),
           ),
-        ).then((_) => _loadData());
+        );
+        notifier.loadData();
       }
     } catch (e) {
       final errorStr = e.toString().toLowerCase();
@@ -488,7 +289,7 @@ class _HomeScreenState extends State<HomeScreen> {
           errorStr.contains('operation cancelled')) {
         return;
       }
-      if (mounted) {
+      if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
               content: Text('Something went wrong. Please try again.')),
@@ -497,7 +298,7 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  Future<void> _showAddFolderDialog() async {
+  Future<void> _showAddFolderDialog(BuildContext context, HomeNotifier notifier) async {
     final controller = TextEditingController();
     showDialog(
       context: context,
@@ -517,15 +318,10 @@ class _HomeScreenState extends State<HomeScreen> {
             onPressed: () async {
               final name = controller.text.trim();
               if (name.isNotEmpty) {
-                await DatabaseHelper.instance.insertFolder(
-                  FolderModel(
-                      name: name,
-                      createdAt: DateTime.now().millisecondsSinceEpoch),
-                );
+                await notifier.createFolder(name);
                 if (context.mounted) {
                   Navigator.pop(context);
                 }
-                _loadData();
               }
             },
             style: ElevatedButton.styleFrom(
@@ -548,531 +344,575 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final isKeyboardOpen = MediaQuery.of(context).viewInsets.bottom > 0;
-    if (!isKeyboardOpen && _searchFocusNode.hasFocus) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (_searchFocusNode.hasFocus) {
-          _searchFocusNode.unfocus();
-        }
-      });
-    }
+    return ChangeNotifierProvider<HomeNotifier>(
+      create: (_) => HomeNotifier(),
+      child: Consumer<HomeNotifier>(
+        builder: (context, notifier, child) {
+          final isKeyboardOpen = MediaQuery.of(context).viewInsets.bottom > 0;
+          if (!isKeyboardOpen && _searchFocusNode.hasFocus) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (_searchFocusNode.hasFocus) {
+                _searchFocusNode.unfocus();
+              }
+            });
+          }
 
-    return Scaffold(
-      resizeToAvoidBottomInset: false,
-      backgroundColor: const Color(0xFFF8FAFC),
-      body: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTap: () => FocusScope.of(context).unfocus(),
-        child: _activeTab == 1
-            ? const ToolsScreen()
-            : SafeArea(
-                top: false,
-                child: Column(
-                  children: [
-                    Container(
-                      color: const Color(0xFF00A86B),
-                      padding: EdgeInsets.fromLTRB(
-                          16, 16 + MediaQuery.of(context).padding.top, 16, 16),
+          return Scaffold(
+            resizeToAvoidBottomInset: false,
+            backgroundColor: const Color(0xFFF8FAFC),
+            body: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: () => FocusScope.of(context).unfocus(),
+              child: _activeTab == 1
+                  ? const ToolsScreen()
+                  : SafeArea(
+                      top: false,
                       child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text(
-                            "DocScanner Pro",
-                            style: TextStyle(
-                              fontSize: 24,
-                              fontWeight: FontWeight.w900,
-                              color: Colors.white,
-                              letterSpacing: 0.5,
-                            ),
-                          ),
-                          const SizedBox(height: 12),
-                          TextField(
-                            controller: _searchController,
-                            focusNode: _searchFocusNode,
-                            onChanged: _onSearchChanged,
-                            decoration: InputDecoration(
-                              hintText: "Search documents or OCR text...",
-                              prefixIcon: const Icon(Icons.search,
-                                  color: Color(0xFF00A86B)),
-                              suffixIcon: _searchController.text.isNotEmpty
-                                  ? IconButton(
-                                      icon: const Icon(Icons.cancel,
-                                          color: Colors.grey),
-                                      onPressed: _clearSearch,
-                                    )
-                                  : null,
-                              filled: true,
-                              fillColor: Colors.white,
-                              contentPadding: EdgeInsets.zero,
-                              border: OutlineInputBorder(
-                                borderSide: BorderSide.none,
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 16.0, vertical: 8.0),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: SingleChildScrollView(
-                              scrollDirection: Axis.horizontal,
-                              child: Row(
-                                children: _folders.map((folder) {
-                                  return FolderChip(
-                                    folder: folder,
-                                    isSelected: _selectedFolderId == folder.id,
-                                    onTap: () {
-                                      setState(() {
-                                        _selectedFolderId =
-                                            (_selectedFolderId == folder.id)
-                                                ? null
-                                                : folder.id;
-                                      });
-                                      _loadData();
-                                    },
-                                  );
-                                }).toList(),
-                              ),
-                            ),
-                          ),
-                          TextButton.icon(
-                            onPressed: _showAddFolderDialog,
-                            icon:
-                                const Icon(Icons.add, color: Color(0xFF00A86B)),
-                            label: const Text("+ Folder",
-                                style: TextStyle(color: Color(0xFF00A86B))),
-                          ),
-                        ],
-                      ),
-                    ),
-                    Expanded(
-                      child: _localFiles.isEmpty
-                          ? Center(
-                              child: Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Icon(
-                                    _searchQuery.trim().isNotEmpty
-                                        ? Icons.search_off_outlined
-                                        : Icons.folder_open_outlined,
-                                    size: 70,
-                                    color: Colors.grey.shade400,
-                                  ),
-                                  const SizedBox(height: 16),
-                                  Text(
-                                    _searchQuery.trim().isNotEmpty
-                                        ? "No results found for \"$_searchQuery\"\nTry checking your spelling or using different keywords."
-                                        : "No saved files found.\nTap Scan or ID Card and export to save files!",
-                                    textAlign: TextAlign.center,
-                                    style: TextStyle(
-                                        color: Colors.grey.shade600,
-                                        fontSize: 16,
-                                        height: 1.4),
-                                  ),
-                                  if (_searchQuery.trim().isNotEmpty) ...[
-                                    const SizedBox(height: 16),
-                                    ElevatedButton.icon(
-                                      onPressed: _clearSearch,
-                                      style: ElevatedButton.styleFrom(
-                                        backgroundColor: const Color(0xFF00A86B),
-                                        foregroundColor: Colors.white,
-                                        shape: RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.circular(8),
-                                        ),
-                                      ),
-                                      icon: const Icon(Icons.clear, size: 18),
-                                      label: const Text("Clear Search"),
-                                    ),
-                                  ],
-                                ],
-                              ),
-                            )
-                          : ListView.builder(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 16, vertical: 8),
-                              itemCount: _localFiles.length,
-                              itemBuilder: (context, index) {
-                                final item = _localFiles[index];
-                                final file = item.file;
-                                final fileName = item.name;
-                                final isPdf = item.isPdf;
-                                final fileSizeText = item.fileSizeText;
-                                final formattedDate = item.formattedDate;
-
-                                return Card(
-                                  margin: const EdgeInsets.only(bottom: 12),
-                                  elevation: 1,
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                    side: BorderSide(
-                                        color: Colors.grey.shade200, width: 1),
-                                  ),
-                                  color: Colors.white,
-                                  child: ListTile(
-                                    contentPadding: const EdgeInsets.symmetric(
-                                        horizontal: 12, vertical: 8),
-                                    leading: Container(
-                                      width: 54,
-                                      height: 54,
-                                      decoration: BoxDecoration(
-                                        borderRadius: BorderRadius.circular(8),
-                                        color: isPdf
-                                            ? const Color(0xFFFEE2E2)
-                                            : const Color(0xFFECFDF5),
-                                      ),
-                                      child: ClipRRect(
-                                        borderRadius: BorderRadius.circular(8),
-                                        child: isPdf
-                                            ? const Icon(Icons.picture_as_pdf,
-                                                color: Colors.red, size: 28)
-                                            : Image.file(
-                                                file,
-                                                fit: BoxFit.cover,
-                                                errorBuilder: (context, error,
-                                                        stackTrace) =>
-                                                    const Icon(
-                                                  Icons.image,
-                                                  color: Color(0xFF00A86B),
-                                                  size: 28,
-                                                ),
-                                              ),
-                                      ),
-                                    ),
-                                    // FIXED: Wrapped the text fields inside an Expanded to perfectly calculate constraints inside the ListTile Row
-                                    title: _highlightedText(
-                                      item.displayTitle,
-                                      item.highlightQuery,
-                                      baseStyle: const TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 14,
-                                        color: Color(0xFF0F172A),
-                                      ),
-                                      highlightStyle: const TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 14,
-                                        backgroundColor: Color(0xFFFDE047),
-                                        color: Color(0xFF0F172A),
-                                      ),
-                                    ),
-                                    subtitle: Padding(
-                                      padding: const EdgeInsets.only(top: 4.0),
-                                      // FIXED: Handled metadata alignment using a flexible setup inside the Row layer
-                                      child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        children: [
-                                          if (item.extractedTextSnippet != null &&
-                                              item.extractedTextSnippet!.isNotEmpty) ...[
-                                            Padding(
-                                              padding: const EdgeInsets.only(bottom: 4.0),
-                                              child: _highlightedText(
-                                                item.extractedTextSnippet!,
-                                                item.highlightQuery,
-                                                baseStyle: TextStyle(
-                                                  fontSize: 12,
-                                                  color: Colors.grey.shade600,
-                                                  fontStyle: FontStyle.italic,
-                                                ),
-                                                highlightStyle: const TextStyle(
-                                                  fontSize: 12,
-                                                  backgroundColor: Color(0xFFFDE047),
-                                                  color: Color(0xFF0F172A),
-                                                  fontWeight: FontWeight.bold,
-                                                  fontStyle: FontStyle.italic,
-                                                ),
-                                              ),
-                                            ),
-                                          ],
-                                          Row(
-                                            children: [
-                                              Text(
-                                                fileSizeText,
-                                                style: TextStyle(
-                                                    fontSize: 11,
-                                                    color: Colors.grey.shade600,
-                                                    fontWeight: FontWeight.w500),
-                                              ),
-                                              if (fileSizeText.isNotEmpty &&
-                                                  formattedDate.isNotEmpty)
-                                                Container(
-                                                  margin:
-                                                      const EdgeInsets.symmetric(
-                                                          horizontal: 6),
-                                                  width: 3,
-                                                  height: 3,
-                                                  decoration: BoxDecoration(
-                                                      shape: BoxShape.circle,
-                                                      color: Colors.grey.shade400),
-                                                ),
-                                              Expanded(
-                                                child: Text(
-                                                  formattedDate,
-                                                  maxLines: 1,
-                                                  overflow: TextOverflow.ellipsis,
-                                                  style: TextStyle(
-                                                      fontSize: 11,
-                                                      color: Colors.grey.shade600),
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                    trailing: PopupMenuButton<String>(
-                                      onSelected: (action) async {
-                                        if (action == 'delete') {
-                                          final confirm =
-                                              await showDialog<bool>(
-                                            context: context,
-                                            builder: (context) => AlertDialog(
-                                              title: const Text("Delete File"),
-                                              content: Text(
-                                                  "Are you sure you want to delete '$fileName' permanently from storage?"),
-                                              actions: [
-                                                TextButton(
-                                                  onPressed: () =>
-                                                      Navigator.pop(
-                                                          context, false),
-                                                  child: const Text("Cancel"),
-                                                ),
-                                                TextButton(
-                                                  onPressed: () =>
-                                                      Navigator.pop(
-                                                          context, true),
-                                                  style: TextButton.styleFrom(
-                                                      foregroundColor:
-                                                          Colors.red),
-                                                  child: const Text("Delete"),
-                                                ),
-                                              ],
-                                            ),
-                                          );
-
-                                          if (confirm == true) {
-                                            try {
-                                              if (await file.exists()) {
-                                                await file.delete();
-                                              }
-                                              if (context.mounted) {
-                                                ScaffoldMessenger.of(context)
-                                                    .showSnackBar(
-                                                  SnackBar(
-                                                      content: Text(
-                                                          "Deleted '$fileName' successfully.")),
-                                                );
-                                              }
-                                              _loadData();
-                                            } catch (e) {
-                                              if (context.mounted) {
-                                                ScaffoldMessenger.of(context)
-                                                    .showSnackBar(
-                                                  SnackBar(
-                                                      content: Text(
-                                                          "Failed to delete file: $e")),
-                                                );
-                                              }
-                                            }
-                                          }
-                                        } else if (action == 'share') {
-                                          try {
-                                            final mimeType = isPdf
-                                                ? 'application/pdf'
-                                                : 'image/jpeg';
-                                            await Share.shareXFiles([
-                                              XFile(file.path,
-                                                  mimeType: mimeType)
-                                            ]);
-                                          } catch (e) {
-                                            if (context.mounted) {
-                                              ScaffoldMessenger.of(context)
-                                                  .showSnackBar(
-                                                SnackBar(
-                                                    content: Text(
-                                                        "Failed to share file: $e")),
-                                              );
-                                            }
-                                          }
-                                        }
-                                      },
-                                      itemBuilder: (context) => [
-                                        const PopupMenuItem(
-                                          value: 'share',
-                                          child: Row(
-                                            children: [
-                                              Icon(Icons.share,
-                                                  color: Color(0xFF00A86B),
-                                                  size: 20),
-                                              SizedBox(width: 8),
-                                              Text('Share'),
-                                            ],
-                                          ),
-                                        ),
-                                        const PopupMenuItem(
-                                          value: 'delete',
-                                          child: Row(
-                                            children: [
-                                              Icon(Icons.delete,
-                                                  color: Colors.red, size: 20),
-                                              SizedBox(width: 8),
-                                              Text('Delete',
-                                                  style: TextStyle(
-                                                      color: Colors.red)),
-                                            ],
-                                          ),
-                                        ),
-                                      ],
-                                      child: const Icon(Icons.more_vert,
-                                          size: 22, color: Colors.grey),
-                                    ),
-                                    onTap: () {
-                                      if (isPdf) {
-                                        _openPdfFile(file);
-                                      } else {
-                                        _openImageFile(file);
-                                      }
-                                    },
-                                  ),
-                                );
-                              },
-                            ),
-                    ),
-                    Container(
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.06),
-                            blurRadius: 12,
-                            offset: const Offset(0, -4),
-                          ),
-                        ],
-                      ),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Padding(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 16.0, vertical: 10.0),
-                            child: Row(
+                          Container(
+                            color: const Color(0xFF00A86B),
+                            padding: EdgeInsets.fromLTRB(
+                                16, 16 + MediaQuery.of(context).padding.top, 16, 16),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Expanded(
-                                  child: ElevatedButton.icon(
-                                    onPressed: _startIdCardScan,
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: const Color(0xFFFFB703),
-                                      foregroundColor: const Color(0xFF0F172A),
-                                      padding: const EdgeInsets.symmetric(
-                                          vertical: 14),
-                                      elevation: 0,
-                                      shape: RoundedRectangleBorder(
-                                          borderRadius:
-                                              BorderRadius.circular(12)),
-                                    ),
-                                    icon: const Icon(Icons.badge, size: 20),
-                                    label: const Text("ID Card Mode",
-                                        style: TextStyle(
-                                            fontWeight: FontWeight.bold,
-                                            fontSize: 14)),
+                                const Text(
+                                  "DocScanner Pro",
+                                  style: TextStyle(
+                                    fontSize: 24,
+                                    fontWeight: FontWeight.w900,
+                                    color: Colors.white,
+                                    letterSpacing: 0.5,
                                   ),
                                 ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: ElevatedButton.icon(
-                                    onPressed: _startScan,
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: const Color(0xFF00A86B),
-                                      foregroundColor: Colors.white,
-                                      padding: const EdgeInsets.symmetric(
-                                          vertical: 14),
-                                      elevation: 0,
-                                      shape: RoundedRectangleBorder(
-                                          borderRadius:
-                                              BorderRadius.circular(12)),
+                                const SizedBox(height: 12),
+                                TextField(
+                                  controller: _searchController,
+                                  focusNode: _searchFocusNode,
+                                  onChanged: (val) => _onSearchChanged(context, val),
+                                  decoration: InputDecoration(
+                                    hintText: "Search documents or OCR text...",
+                                    prefixIcon: const Icon(Icons.search,
+                                        color: Color(0xFF00A86B)),
+                                    suffixIcon: _searchController.text.isNotEmpty
+                                        ? IconButton(
+                                            icon: const Icon(Icons.cancel,
+                                                color: Colors.grey),
+                                            onPressed: () => _clearSearch(context),
+                                          )
+                                        : null,
+                                    filled: true,
+                                    fillColor: Colors.white,
+                                    contentPadding: EdgeInsets.zero,
+                                    border: OutlineInputBorder(
+                                      borderSide: BorderSide.none,
+                                      borderRadius: BorderRadius.circular(10),
                                     ),
-                                    icon:
-                                        const Icon(Icons.camera_alt, size: 20),
-                                    label: const Text("Scan Document",
-                                        style: TextStyle(
-                                            fontWeight: FontWeight.bold,
-                                            fontSize: 14)),
                                   ),
                                 ),
                               ],
                             ),
                           ),
-                          if (_isBannerLoaded && _bannerAd != null) ...[
-                            const Divider(
-                                height: 1,
-                                thickness: 0.5,
-                                color: Color(0xFFE2E8F0)),
-                            Container(
-                              alignment: Alignment.center,
-                              padding: const EdgeInsets.only(top: 6, bottom: 4),
-                              child: SizedBox(
-                                height: _bannerAd!.size.height.toDouble(),
-                                width: _bannerAd!.size.width.toDouble(),
-                                child: AdWidget(ad: _bannerAd!),
-                              ),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 16.0, vertical: 8.0),
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  child: SingleChildScrollView(
+                                    scrollDirection: Axis.horizontal,
+                                    child: Row(
+                                      children: notifier.folders.map((folder) {
+                                        return FolderChip(
+                                          folder: folder,
+                                          isSelected: notifier.selectedFolderId == folder.id,
+                                          onTap: () {
+                                            notifier.setSelectedFolderId(
+                                              (notifier.selectedFolderId == folder.id)
+                                                  ? null
+                                                  : folder.id,
+                                            );
+                                          },
+                                        );
+                                      }).toList(),
+                                    ),
+                                  ),
+                                ),
+                                TextButton.icon(
+                                  onPressed: () => _showAddFolderDialog(context, notifier),
+                                  icon:
+                                      const Icon(Icons.add, color: Color(0xFF00A86B)),
+                                  label: const Text("+ Folder",
+                                      style: TextStyle(color: Color(0xFF00A86B))),
+                                ),
+                              ],
                             ),
-                          ],
+                          ),
+                          Expanded(
+                            child: notifier.isLoading
+                                ? const Center(
+                                    child: CircularProgressIndicator(
+                                      color: Color(0xFF00A86B),
+                                    ),
+                                  )
+                                : notifier.localFiles.isEmpty
+                                    ? Center(
+                                        child: Column(
+                                          mainAxisAlignment: MainAxisAlignment.center,
+                                          children: [
+                                            Icon(
+                                              notifier.searchQuery.trim().isNotEmpty
+                                                  ? Icons.search_off_outlined
+                                                  : Icons.folder_open_outlined,
+                                              size: 70,
+                                              color: Colors.grey.shade400,
+                                            ),
+                                            const SizedBox(height: 16),
+                                            Text(
+                                              notifier.searchQuery.trim().isNotEmpty
+                                                  ? "No results found for \"${notifier.searchQuery}\"\nTry checking your spelling or using different keywords."
+                                                  : "No saved files found.\nTap Scan or ID Card and export to save files!",
+                                              textAlign: TextAlign.center,
+                                              style: TextStyle(
+                                                  color: Colors.grey.shade600,
+                                                  fontSize: 16,
+                                                  height: 1.4),
+                                            ),
+                                            if (notifier.searchQuery.trim().isNotEmpty) ...[
+                                              const SizedBox(height: 16),
+                                              ElevatedButton.icon(
+                                                onPressed: () => _clearSearch(context),
+                                                style: ElevatedButton.styleFrom(
+                                                  backgroundColor: const Color(0xFF00A86B),
+                                                  foregroundColor: Colors.white,
+                                                  shape: RoundedRectangleBorder(
+                                                    borderRadius: BorderRadius.circular(8),
+                                                  ),
+                                                ),
+                                                icon: const Icon(Icons.clear, size: 18),
+                                                label: const Text("Clear Search"),
+                                              ),
+                                            ],
+                                          ],
+                                        ),
+                                      )
+                                    : ListView.builder(
+                                        padding: const EdgeInsets.symmetric(
+                                            horizontal: 16, vertical: 8),
+                                        itemCount: notifier.localFiles.length,
+                                        itemBuilder: (context, index) {
+                                          final item = notifier.localFiles[index];
+                                          final file = item.file;
+                                          final fileName = item.name;
+                                          final isPdf = item.isPdf;
+                                          final fileSizeText = item.fileSizeText;
+                                          final formattedDate = item.formattedDate;
+
+                                          return Card(
+                                            margin: const EdgeInsets.only(bottom: 12),
+                                            elevation: 1,
+                                            shape: RoundedRectangleBorder(
+                                              borderRadius: BorderRadius.circular(12),
+                                              side: BorderSide(
+                                                  color: Colors.grey.shade200, width: 1),
+                                            ),
+                                            color: Colors.white,
+                                            child: ListTile(
+                                              contentPadding: const EdgeInsets.symmetric(
+                                                  horizontal: 12, vertical: 8),
+                                              leading: Container(
+                                                width: 54,
+                                                height: 54,
+                                                decoration: BoxDecoration(
+                                                  borderRadius: BorderRadius.circular(8),
+                                                  color: isPdf
+                                                      ? const Color(0xFFFEE2E2)
+                                                      : const Color(0xFFECFDF5),
+                                                ),
+                                                child: ClipRRect(
+                                                  borderRadius: BorderRadius.circular(8),
+                                                  child: isPdf
+                                                      ? const Icon(Icons.picture_as_pdf,
+                                                          color: Colors.red, size: 28)
+                                                      : Image.file(
+                                                          file,
+                                                          fit: BoxFit.cover,
+                                                          errorBuilder: (context, error,
+                                                                  stackTrace) =>
+                                                              const Icon(
+                                                            Icons.image,
+                                                            color: Color(0xFF00A86B),
+                                                            size: 28,
+                                                          ),
+                                                        ),
+                                                ),
+                                              ),
+                                              title: _highlightedText(
+                                                item.displayTitle,
+                                                item.highlightQuery,
+                                                baseStyle: const TextStyle(
+                                                  fontWeight: FontWeight.bold,
+                                                  fontSize: 14,
+                                                  color: Color(0xFF0F172A),
+                                                ),
+                                                highlightStyle: const TextStyle(
+                                                  fontWeight: FontWeight.bold,
+                                                  fontSize: 14,
+                                                  backgroundColor: Color(0xFFFDE047),
+                                                  color: Color(0xFF0F172A),
+                                                ),
+                                              ),
+                                              subtitle: Padding(
+                                                padding: const EdgeInsets.only(top: 4.0),
+                                                child: Column(
+                                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                                  children: [
+                                                    if (item.extractedTextSnippet != null &&
+                                                        item.extractedTextSnippet!.isNotEmpty) ...[
+                                                      Padding(
+                                                        padding: const EdgeInsets.only(bottom: 4.0),
+                                                        child: _highlightedText(
+                                                          item.extractedTextSnippet!,
+                                                          item.highlightQuery,
+                                                          baseStyle: TextStyle(
+                                                            fontSize: 12,
+                                                            color: Colors.grey.shade600,
+                                                            fontStyle: FontStyle.italic,
+                                                          ),
+                                                          highlightStyle: const TextStyle(
+                                                            fontSize: 12,
+                                                            backgroundColor: Color(0xFFFDE047),
+                                                            color: Color(0xFF0F172A),
+                                                            fontWeight: FontWeight.bold,
+                                                            fontStyle: FontStyle.italic,
+                                                          ),
+                                                        ),
+                                                      ),
+                                                    ],
+                                                    Row(
+                                                      children: [
+                                                        Text(
+                                                          fileSizeText,
+                                                          style: TextStyle(
+                                                              fontSize: 11,
+                                                              color: Colors.grey.shade600,
+                                                              fontWeight: FontWeight.w500),
+                                                        ),
+                                                        if (fileSizeText.isNotEmpty &&
+                                                            formattedDate.isNotEmpty)
+                                                          Container(
+                                                            margin:
+                                                                const EdgeInsets.symmetric(
+                                                                    horizontal: 6),
+                                                            width: 3,
+                                                            height: 3,
+                                                            decoration: BoxDecoration(
+                                                                shape: BoxShape.circle,
+                                                                color: Colors.grey.shade400),
+                                                          ),
+                                                        Expanded(
+                                                          child: Text(
+                                                            formattedDate,
+                                                            maxLines: 1,
+                                                            overflow: TextOverflow.ellipsis,
+                                                            style: TextStyle(
+                                                                fontSize: 11,
+                                                                color: Colors.grey.shade600),
+                                                          ),
+                                                        ),
+                                                      ],
+                                                    ),
+                                                  ],
+                                                ),
+                                              ),
+                                              trailing: PopupMenuButton<String>(
+                                                onSelected: (action) async {
+                                                  if (action == 'delete') {
+                                                    final confirm =
+                                                        await showDialog<bool>(
+                                                      context: context,
+                                                      builder: (context) => AlertDialog(
+                                                        title: const Text("Delete File"),
+                                                        content: Text(
+                                                            "Are you sure you want to delete '$fileName' permanently from storage?"),
+                                                        actions: [
+                                                          TextButton(
+                                                            onPressed: () =>
+                                                                Navigator.pop(
+                                                                    context, false),
+                                                            child: const Text("Cancel"),
+                                                          ),
+                                                          TextButton(
+                                                            onPressed: () =>
+                                                                Navigator.pop(
+                                                                    context, true),
+                                                            style: TextButton.styleFrom(
+                                                                foregroundColor:
+                                                                    Colors.red),
+                                                            child: const Text("Delete"),
+                                                          ),
+                                                        ],
+                                                      ),
+                                                    );
+
+                                                    if (confirm == true) {
+                                                      final deleted = await notifier.deleteFile(file);
+                                                      if (context.mounted) {
+                                                        if (deleted) {
+                                                          ScaffoldMessenger.of(context)
+                                                              .showSnackBar(
+                                                            SnackBar(
+                                                                content: Text(
+                                                                    "Deleted '$fileName' successfully.")),
+                                                          );
+                                                        } else {
+                                                          ScaffoldMessenger.of(context)
+                                                              .showSnackBar(
+                                                            const SnackBar(
+                                                                content: Text(
+                                                                    "Failed to delete file.")),
+                                                          );
+                                                        }
+                                                      }
+                                                    }
+                                                  } else if (action == 'share') {
+                                                    try {
+                                                      final mimeType = isPdf
+                                                          ? 'application/pdf'
+                                                          : 'image/jpeg';
+                                                      await Share.shareXFiles([
+                                                        XFile(file.path,
+                                                            mimeType: mimeType)
+                                                      ]);
+                                                    } catch (e) {
+                                                      if (context.mounted) {
+                                                        ScaffoldMessenger.of(context)
+                                                            .showSnackBar(
+                                                          SnackBar(
+                                                              content: Text(
+                                                                  "Failed to share file: $e")),
+                                                        );
+                                                      }
+                                                    }
+                                                  } else if (action == 'rename') {
+                                                    final newName = await showDialog<String>(
+                                                      context: context,
+                                                      builder: (context) {
+                                                        final controller = TextEditingController(text: item.displayTitle);
+                                                        return AlertDialog(
+                                                          title: const Text("Rename File"),
+                                                          content: TextField(
+                                                            controller: controller,
+                                                            decoration: const InputDecoration(hintText: "Enter new name"),
+                                                            textCapitalization: TextCapitalization.sentences,
+                                                          ),
+                                                          actions: [
+                                                            TextButton(
+                                                              onPressed: () => Navigator.pop(context),
+                                                              child: const Text("Cancel"),
+                                                            ),
+                                                            ElevatedButton(
+                                                              onPressed: () {
+                                                                final name = controller.text.trim();
+                                                                if (name.isNotEmpty) {
+                                                                  Navigator.pop(context, name);
+                                                                }
+                                                              },
+                                                              style: ElevatedButton.styleFrom(
+                                                                  backgroundColor: const Color(0xFF00A86B)),
+                                                              child: const Text("Rename", style: TextStyle(color: Colors.white)),
+                                                            ),
+                                                          ],
+                                                        );
+                                                      },
+                                                    );
+
+                                                    if (newName != null && newName.trim().isNotEmpty) {
+                                                      final renamed = await notifier.renameFile(file, newName);
+                                                      if (context.mounted) {
+                                                        if (renamed) {
+                                                          ScaffoldMessenger.of(context).showSnackBar(
+                                                            SnackBar(content: Text("Renamed successfully to '$newName'")),
+                                                          );
+                                                        } else {
+                                                          ScaffoldMessenger.of(context).showSnackBar(
+                                                            const SnackBar(content: Text("Failed to rename file.")),
+                                                          );
+                                                        }
+                                                      }
+                                                    }
+                                                  }
+                                                },
+                                                itemBuilder: (context) => [
+                                                  const PopupMenuItem(
+                                                    value: 'share',
+                                                    child: Row(
+                                                      children: [
+                                                        Icon(Icons.share,
+                                                            color: Color(0xFF00A86B),
+                                                            size: 20),
+                                                        SizedBox(width: 8),
+                                                        Text('Share'),
+                                                      ],
+                                                    ),
+                                                  ),
+                                                  const PopupMenuItem(
+                                                    value: 'rename',
+                                                    child: Row(
+                                                      children: [
+                                                        Icon(Icons.edit,
+                                                            color: Color(0xFF00A86B),
+                                                            size: 20),
+                                                        SizedBox(width: 8),
+                                                        Text('Rename'),
+                                                      ],
+                                                    ),
+                                                  ),
+                                                  const PopupMenuItem(
+                                                    value: 'delete',
+                                                    child: Row(
+                                                      children: [
+                                                        Icon(Icons.delete,
+                                                            color: Colors.red, size: 20),
+                                                        SizedBox(width: 8),
+                                                        Text('Delete',
+                                                            style: TextStyle(
+                                                                color: Colors.red)),
+                                                      ],
+                                                    ),
+                                                  ),
+                                                ],
+                                                child: const Icon(Icons.more_vert,
+                                                    size: 22, color: Colors.grey),
+                                              ),
+                                              onTap: () {
+                                                if (isPdf) {
+                                                  _openPdfFile(file);
+                                                } else {
+                                                  _openImageFile(file);
+                                                }
+                                              },
+                                            ),
+                                          );
+                                        },
+                                      ),
+                          ),
+                          Container(
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: 0.06),
+                                  blurRadius: 12,
+                                  offset: const Offset(0, -4),
+                                ),
+                              ],
+                            ),
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 16.0, vertical: 10.0),
+                                  child: Row(
+                                    children: [
+                                      Expanded(
+                                        child: ElevatedButton.icon(
+                                          onPressed: () => _startIdCardScan(context, notifier),
+                                          style: ElevatedButton.styleFrom(
+                                            backgroundColor: const Color(0xFFFFB703),
+                                            foregroundColor: const Color(0xFF0F172A),
+                                            padding: const EdgeInsets.symmetric(
+                                                vertical: 14),
+                                            elevation: 0,
+                                            shape: RoundedRectangleBorder(
+                                                borderRadius:
+                                                    BorderRadius.circular(12)),
+                                          ),
+                                          icon: const Icon(Icons.badge, size: 20),
+                                          label: const Text("ID Card Mode",
+                                              style: TextStyle(
+                                                  fontWeight: FontWeight.bold,
+                                                  fontSize: 14)),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 12),
+                                      Expanded(
+                                        child: ElevatedButton.icon(
+                                          onPressed: () => _startScan(context, notifier),
+                                          style: ElevatedButton.styleFrom(
+                                            backgroundColor: const Color(0xFF00A86B),
+                                            foregroundColor: Colors.white,
+                                            padding: const EdgeInsets.symmetric(
+                                                vertical: 14),
+                                            elevation: 0,
+                                            shape: RoundedRectangleBorder(
+                                                borderRadius:
+                                                    BorderRadius.circular(12)),
+                                          ),
+                                          icon:
+                                              const Icon(Icons.camera_alt, size: 20),
+                                          label: const Text("Scan Document",
+                                              style: TextStyle(
+                                                  fontWeight: FontWeight.bold,
+                                                  fontSize: 14)),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                if (_isBannerLoaded && _bannerAd != null) ...[
+                                  const Divider(
+                                      height: 1,
+                                      thickness: 0.5,
+                                      color: Color(0xFFE2E8F0)),
+                                  Container(
+                                    alignment: Alignment.center,
+                                    padding: const EdgeInsets.only(top: 6, bottom: 4),
+                                    child: SizedBox(
+                                      height: _bannerAd!.size.height.toDouble(),
+                                      width: _bannerAd!.size.width.toDouble(),
+                                      child: AdWidget(ad: _bannerAd!),
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            ),
+                          ),
                         ],
                       ),
                     ),
-                  ],
+            ),
+            bottomNavigationBar: BottomNavigationBar(
+              currentIndex: _activeTab,
+              onTap: (index) {
+                setState(() => _activeTab = index);
+                if (index == 0) {
+                  notifier.loadData();
+                }
+              },
+              selectedItemColor: const Color(0xFF00A86B),
+              unselectedItemColor: Colors.grey.shade600,
+              backgroundColor: Colors.white,
+              elevation: 8,
+              selectedLabelStyle:
+                  const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+              items: const [
+                BottomNavigationBarItem(
+                  icon: Icon(Icons.description_outlined),
+                  activeIcon: Icon(Icons.description),
+                  label: "Documents",
                 ),
-              ),
-      ),
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: _activeTab,
-        onTap: (index) => setState(() => _activeTab = index),
-        selectedItemColor: const Color(0xFF00A86B),
-        unselectedItemColor: Colors.grey.shade600,
-        backgroundColor: Colors.white,
-        elevation: 8,
-        selectedLabelStyle:
-            const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-        items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.description_outlined),
-            activeIcon: Icon(Icons.description),
-            label: "Documents",
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.grid_view_outlined),
-            activeIcon: Icon(Icons.grid_view),
-            label: "Tools",
-          ),
-        ],
+                BottomNavigationBarItem(
+                  icon: Icon(Icons.grid_view_outlined),
+                  activeIcon: Icon(Icons.grid_view),
+                  label: "Tools",
+                ),
+              ],
+            ),
+          );
+        },
       ),
     );
   }
-}
-
-class LocalFileItem {
-  final File file;
-  final String name;
-  final String displayTitle;
-  final String fileSizeText;
-  final DateTime modifiedTime;
-  final String formattedDate;
-  final bool isPdf;
-  final String? highlightQuery;
-  final String? extractedTextSnippet;
-
-  LocalFileItem({
-    required this.file,
-    required this.name,
-    required this.displayTitle,
-    required this.fileSizeText,
-    required this.modifiedTime,
-    required this.formattedDate,
-    required this.isPdf,
-    this.highlightQuery,
-    this.extractedTextSnippet,
-  });
 }
