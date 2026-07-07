@@ -40,9 +40,12 @@ class ExportPreviewNotifier extends ChangeNotifier {
     this.watermarkText = "DocScanner Pro",
   })  : selectedWatermarkColor = initialColor,
         selectedOpacity = initialOpacity {
-    _calculateSize();
-    generateLivePreviews();
-    AdService.loadInterstitialAd();
+    // Delay initialization to make route transitions completely smooth and lag-free
+    Future.delayed(const Duration(milliseconds: 250), () {
+      _calculateSize();
+      generateLivePreviews();
+      AdService.loadInterstitialAd();
+    });
   }
 
   // Generate live previews based on current settings
@@ -126,4 +129,17 @@ class ExportPreviewNotifier extends ChangeNotifier {
     isExportingPdf = v;
     notifyListeners();
   }
+
+  /// Reorder images based on drag-and-drop indices.
+  void reorderImages(int oldIndex, int newIndex) {
+    // Guard against invalid indices.
+    if (oldIndex < 0 || oldIndex >= imagePaths.length) return;
+    if (newIndex < 0 || newIndex > imagePaths.length) return;
+    // Remove the item and insert at the new position.
+    final moved = imagePaths.removeAt(oldIndex);
+    imagePaths.insert(newIndex, moved);
+    // Refresh previews to reflect the new order.
+    generateLivePreviews();
+  }
+
 }

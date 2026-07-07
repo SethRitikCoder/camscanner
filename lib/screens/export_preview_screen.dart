@@ -3,9 +3,10 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:path/path.dart' as p;
-import '../services/compression_service.dart';
+
 import '../services/pdf_service.dart';
 import '../services/storage_service.dart';
+import '../services/compression_service.dart';
 import 'export_preview_notifier.dart';
 
 class ExportPreviewScreen extends StatelessWidget {
@@ -176,67 +177,93 @@ class ExportPreviewScreen extends StatelessWidget {
                 children: [
                   // Top Preview Area
                   Expanded(
-                    child: Stack(
-                      children: [
-                        notifier.previewFiles.isEmpty
+                    // Top Preview Area with drag-and-drop reordering and page index badges
+                    child: LayoutBuilder(
+                      builder: (context, constraints) {
+                        final height = constraints.maxHeight;
+                        // Calculate size for paper-like A4 aspect ratio cards
+                        final cardHeight = height > 32 ? height - 32 : 150.0;
+                        final cardWidth = cardHeight / 1.414;
+
+                        return notifier.previewFiles.isEmpty
                             ? const Center(
                                 child: CircularProgressIndicator(
                                     color: Color(0xFF00A86B)))
-                            : PageView.builder(
+                            : ReorderableListView.builder(
+                                scrollDirection: Axis.horizontal,
+                                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
                                 itemCount: notifier.previewFiles.length,
+                                onReorderItem: (oldIndex, newIndex) {
+                                  notifier.reorderImages(oldIndex, newIndex);
+                                },
                                 itemBuilder: (context, index) {
-                                  final currentFile = notifier.previewFiles[index];
-                                  return GestureDetector(
-                                    onTap: () => _openImageZoom(context, currentFile),
-                                    child: Container(
-                                      margin: const EdgeInsets.all(16),
-                                      decoration: BoxDecoration(
-                                        borderRadius: BorderRadius.circular(16),
-                                        boxShadow: const [
-                                          BoxShadow(
-                                              color: Colors.black12,
-                                              blurRadius: 12,
-                                              offset: Offset(0, 4))
-                                        ],
-                                      ),
-                                      child: ClipRRect(
-                                        borderRadius: BorderRadius.circular(16),
-                                        child: Stack(
-                                          alignment: Alignment.center,
-                                          children: [
-                                            Positioned.fill(
-                                              child: Container(
-                                                color: Colors.white,
-                                                child: Image.file(currentFile,
-                                                    fit: BoxFit.contain),
+                                  final file = notifier.previewFiles[index];
+                                  return Container(
+                                    key: ValueKey(file.path),
+                                    width: cardWidth,
+                                    height: cardHeight,
+                                    margin: const EdgeInsets.only(right: 16),
+                                    decoration: BoxDecoration(
+                                      color: Colors.white,
+                                      borderRadius: BorderRadius.circular(12),
+                                      boxShadow: const [
+                                        BoxShadow(
+                                            color: Colors.black12,
+                                            blurRadius: 8,
+                                            offset: Offset(0, 2))
+                                      ],
+                                    ),
+                                    child: Stack(
+                                      children: [
+                                        Positioned.fill(
+                                          child: ClipRRect(
+                                            borderRadius: BorderRadius.circular(12),
+                                            child: Container(
+                                              color: Colors.white,
+                                              child: Image.file(
+                                                file,
+                                                fit: BoxFit.contain,
                                               ),
                                             ),
-                                            const Positioned(
-                                              bottom: 12,
-                                              right: 12,
-                                              child: CircleAvatar(
-                                                radius: 18,
-                                                backgroundColor: Colors.black54,
-                                                child: Icon(Icons.zoom_in,
-                                                    color: Colors.white, size: 18),
-                                              ),
-                                            ),
-                                          ],
+                                          ),
                                         ),
-                                      ),
+                                        Positioned(
+                                          top: 8,
+                                          left: 8,
+                                          child: CircleAvatar(
+                                            radius: 12,
+                                            backgroundColor: const Color(0xFF00A86B),
+                                            child: Text(
+                                              '${index + 1}',
+                                              style: const TextStyle(
+                                                  color: Colors.white,
+                                                  fontSize: 12,
+                                                  fontWeight: FontWeight.bold),
+                                            ),
+                                          ),
+                                        ),
+                                        Positioned(
+                                          bottom: 8,
+                                          right: 8,
+                                          child: GestureDetector(
+                                            onTap: () => _openImageZoom(context, file),
+                                            child: CircleAvatar(
+                                              radius: 14,
+                                              backgroundColor: Colors.black.withValues(alpha: 0.5),
+                                              child: const Icon(
+                                                Icons.zoom_in,
+                                                color: Colors.white,
+                                                size: 16,
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                      ],
                                     ),
                                   );
                                 },
-                              ),
-                        if (notifier.isLiveUpdating && notifier.previewFiles.isNotEmpty)
-                          Container(
-                            color: Colors.black12,
-                            child: const Center(
-                              child:
-                                  CircularProgressIndicator(color: Color(0xFF00A86B)),
-                            ),
-                          ),
-                      ],
+                              );
+                      },
                     ),
                   ),
 

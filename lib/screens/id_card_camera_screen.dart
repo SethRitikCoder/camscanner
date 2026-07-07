@@ -23,7 +23,9 @@ class _IdCardCameraScreenContent extends StatelessWidget {
   void _openAdjustEdgesScreen(
       BuildContext context, CameraNotifier notifier) async {
     if (notifier.currentRawImagePath == null ||
-        notifier.currentCropPoints == null) return;
+        notifier.currentCropPoints == null) {
+      return;
+    }
 
     final result = await Navigator.push<List<Offset>>(
       context,

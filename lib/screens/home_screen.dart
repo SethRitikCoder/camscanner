@@ -38,19 +38,28 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _loadBannerAd() {
+    _isBannerLoaded = false;
     _bannerAd = BannerAd(
       adUnitId: AdService.bannerAdUnitId,
       size: AdSize.banner,
       request: const AdRequest(),
       listener: BannerAdListener(
         onAdLoaded: (_) {
+          if (!mounted) return;
           setState(() => _isBannerLoaded = true);
         },
         onAdFailedToLoad: (ad, error) {
+          debugPrint('BannerAd failed to load: $error');
           ad.dispose();
+          if (!mounted) return;
+          setState(() {
+            _isBannerLoaded = false;
+            _bannerAd = null;
+          });
         },
       ),
-    )..load();
+    );
+    _bannerAd!.load();
   }
 
   void _onSearchChanged(BuildContext context, String val) {
